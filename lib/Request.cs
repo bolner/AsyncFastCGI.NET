@@ -18,7 +18,6 @@ using System.IO;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
-
 namespace AsyncFastCGI {
     class Request {
         private int maxInputSize;
@@ -27,14 +26,18 @@ namespace AsyncFastCGI {
 
         public delegate void RequestEndedDelegate(Request request);
         private RequestEndedDelegate OnRequestEnded;
-        private Client.ClientHandlerDelegate clientEventHandler;
+        private Client.RequestHandlerDelegate requestHandler;
+        private int outputBufferSize;
 
-        public Request(int maxInputSize, Client.ClientHandlerDelegate clientEventHandler, RequestEndedDelegate onRequestEnded) {
+        public Request(int maxInputSize, int outputBufferSize, Client.RequestHandlerDelegate requestHandler,
+                RequestEndedDelegate onRequestEnded) {
+
             this.maxInputSize = maxInputSize;
             this.record = new Record();
             this.contentStream = new MemoryStream(4096);
             this.OnRequestEnded = onRequestEnded;
-            this.clientEventHandler = clientEventHandler;
+            this.requestHandler = requestHandler;
+            this.outputBufferSize = outputBufferSize;   // Maximum size of OB
         }
 
         /// <summary>
@@ -72,14 +75,14 @@ namespace AsyncFastCGI {
                             Console.WriteLine($"Record Type: STDIN. Length: {record.getLength()}");
                             if (record.getContentLength() < 1) {
                                 // Closing record for STDIN
+                                // Pass execution to the client callback
 
-                                // TODO: Create input and output objects
                                 Input stdin = new Input(this.contentStream.ToArray(), null);
-                                Output stdout = new Output(connection, requestID);
-                                this.clientEventHandler(stdin, stdout);
+                                Output stdout = new Output(connection, requestID, this.outputBufferSize);
+                                await this.requestHandler(stdin, stdout);
+                                connection.Close();
+                                this.OnRequestEnded(this);
 
-                                // TODO: Pass execution to the client callback
-                                
                                 return;
                             }
 

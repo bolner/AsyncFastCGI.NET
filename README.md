@@ -1,10 +1,10 @@
 # AsyncFastCGI.NET
 
-Fully async FastCGI client library, written in C#.
+Fully async FastCGI client library for `.NET Core`, written in C#.
 
 ## Build and run
 
-1. Install .NET Core on Ubuntu 18.04
+1. Install `.NET Core` on Ubuntu 18.04
 
     Execute the following as root:
 
@@ -19,7 +19,7 @@ Fully async FastCGI client library, written in C#.
 2. Build or run for debug and development
 
         dotnet build
-        dotnet run
+        dotnet run 8080
 
 3. Release build
 
