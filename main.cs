@@ -31,11 +31,8 @@ namespace FastCgiExampleApp
                 }
 
                 int port = 0;
-
-                try {
-                    port = Int32.Parse(args[0]);
-                } catch (Exception e) {
-                    throw(new Exception("Invalid port value.", e));
+                if (!Int32.TryParse(args[0], out port)) {
+                    throw(new Exception("Invalid port value."));
                 }
 
                 /*
