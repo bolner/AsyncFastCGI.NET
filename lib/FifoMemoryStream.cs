@@ -70,7 +70,6 @@ namespace AsyncFastCGI {
 
             count = Math.Min(count, outBuffer.Length - outBufferOffset);
             if (count < 1) {
-                Console.WriteLine("X");
                 return 0;
             }
 
@@ -81,7 +80,6 @@ namespace AsyncFastCGI {
 
             while(remaining > 0) {
                 current = this.buffer[0];
-                Console.WriteLine($"# {System.Text.Encoding.UTF8.GetString(current.data)}");
                 currentLength = current.data.Length - current.offset;
 
                 if (currentLength > remaining) {

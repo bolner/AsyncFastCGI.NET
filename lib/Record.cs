@@ -113,7 +113,6 @@ namespace AsyncFastCGI {
                     return false;
                 }
                 this.bufferEnd += bytesRead;
-                Console.WriteLine($"* Bytes read: {bytesRead}");
             }
         
             /*
@@ -210,7 +209,6 @@ namespace AsyncFastCGI {
                 length = 0;
             } else {
                 length = (UInt16)fifo.read(Record.MAX_CONTENT_SIZE, this.buffer, 8);
-                Console.WriteLine($"Transferred '{length}' bytes.");
             }
             
             /*
@@ -247,8 +245,6 @@ namespace AsyncFastCGI {
         /// <param name="stream">Stream of the connection socket.</param>
         public async Task sendAsync(NetworkStream stream) {
             await stream.WriteAsync(this.buffer, 0, this.bufferEnd);
-
-            Console.WriteLine($"Sent '{this.bufferEnd}' bytes.");
         }
     }
 }
