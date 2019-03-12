@@ -44,7 +44,6 @@ namespace FastCgiExampleApp
                 client.setBindAddress("0.0.0.0");       // Bind to all interfaces
                 client.setMaxConcurrentRequests(256);   // Requests that are running in parallel
                 client.setMaxInputSize(8388608);        // 8 MB
-                client.setOutputBufferSize(4096);       // 4 K
                 client.setConnectionTimeout(10000);     // 10 seconds
                 client.requestHandler = Program.requestHandler;
                 
@@ -58,7 +57,8 @@ namespace FastCgiExampleApp
         private static async Task requestHandler(AsyncFastCGI.Input input, AsyncFastCGI.Output output) {
             output.setHttpStatus(200);
             output.setHeader("Content-Type", "text/html; charset=utf-8");
-            await output.writeAsync("<!DOCTYPE html><html><body><h1>Hello World!</h1></body></html>");
+            await output.writeAsync("<!DOCTYPE html><html><body><h1>Hello World!");
+            await output.writeAsync("</h1></body></html>");
             await output.endAsync();
         }
     }

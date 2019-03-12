@@ -64,14 +64,14 @@ namespace AsyncFastCGI {
         private bool headerReconstructed = false;
         private bool completeRecordReconstructed = false;
 
-        private bool isLittleEndian = true;
+        private bool isLittleEndian;
 
         private byte recordVersion = 0;
         private byte recordType = 0;
-        private int recordRequestID = 0;
-        private int recordContentLength = 0;
+        private UInt16 recordRequestID = 0;
+        private UInt16 recordContentLength = 0;
         private int recordLength = 0;
-        private int recordPaddingLength = 0;
+        private UInt16 recordPaddingLength = 0;
 
         public int getType() {
             return this.recordType;
@@ -81,11 +81,11 @@ namespace AsyncFastCGI {
             return this.recordLength;
         }
 
-        public int getRequestID() {
+        public UInt16 getRequestID() {
             return this.recordRequestID;
         }
 
-        public int getContentLength() {
+        public UInt16 getContentLength() {
             return this.recordContentLength;
         }
 
@@ -95,7 +95,8 @@ namespace AsyncFastCGI {
         }
 
         /// <summary>
-        /// 
+        /// Use it in an iteration. Keeps reading from the network
+        /// stream until at least one complete record is reconstructed.
         /// </summary>
         /// <returns>True if a complete record has been reconstructed, false otherwise.</returns>
         public async Task<bool> processInputAsync(NetworkStream stream) {
@@ -126,11 +127,11 @@ namespace AsyncFastCGI {
                 this.recordVersion = this.buffer[0];
                 this.recordType = this.buffer[1];
                 if (this.isLittleEndian) {
-                    this.recordRequestID = (this.buffer[2] << 8) | this.buffer[3];
-                    this.recordContentLength = (this.buffer[4] << 8) | this.buffer[5];
+                    this.recordRequestID = (UInt16)((this.buffer[2] << 8) | this.buffer[3]);
+                    this.recordContentLength = (UInt16)((this.buffer[4] << 8) | this.buffer[5]);
                 } else {
-                    this.recordRequestID = (this.buffer[3] << 8) | this.buffer[2];
-                    this.recordContentLength = (this.buffer[5] << 8) | this.buffer[4];
+                    this.recordRequestID = (UInt16)((this.buffer[3] << 8) | this.buffer[2]);
+                    this.recordContentLength = (UInt16)((this.buffer[5] << 8) | this.buffer[4]);
                 }
                 this.recordPaddingLength = this.buffer[6];
 
@@ -193,26 +194,61 @@ namespace AsyncFastCGI {
             stream.Write(this.buffer, HEADER_SIZE, this.recordContentLength);
         }
 
-        public int STDOUT(int requestID, byte[] data, int offset) {
-            int length = data.Length - offset;
-            int returnOffset = 0;
+        /// <summary>
+        /// Converts the record buffer into an STDOUT record, and fills it with data.
+        /// </summary>
+        /// <param name="requestID">FastCGI request ID</param>
+        /// <param name="fifo">Data source. Pass null to create an empty closing record.</param>
+        /// <returns>Number of bytes transferred from the FIFO stream.</returns>
+        public int STDOUT(UInt16 requestID, FifoMemoryStream fifo) {
+            /*
+                Set content
+            */
+            UInt16 length;
 
-            if (length > MAX_CONTENT_SIZE) {
-                length = MAX_CONTENT_SIZE;
-                returnOffset = offset + length;
-            }
-
-            this.buffer[0] = (byte)1;     // Version
-            this.buffer[1] = (byte)TYPE_STDOUT;
-
-            // TODO
-            if (isLittleEndian) {
-
+            if (fifo == null) {
+                length = 0;
             } else {
+                length = (UInt16)fifo.read(Record.MAX_CONTENT_SIZE, this.buffer, 8);
+                Console.WriteLine($"Transferred '{length}' bytes.");
+            }
+            
+            /*
+                Set header
+            */
+            this.buffer[0] = (byte)1;               // Version
+            this.buffer[1] = (byte)TYPE_STDOUT;     // Type
 
+            if (isLittleEndian) {
+                this.buffer[2] = (byte)(requestID >> 8);      // Request ID 1
+                this.buffer[3] = (byte)(requestID & 0x00FF);  // Request ID 0
+
+                this.buffer[4] = (byte)(length >> 8);         // Content Length 1
+                this.buffer[5] = (byte)(length & 0x00FF);     // Content Length 0
+            } else {
+                this.buffer[2] = (byte)(requestID << 8);      // Request ID 1
+                this.buffer[3] = (byte)(requestID & 0xFF00);  // Request ID 0
+
+                this.buffer[4] = (byte)(length << 8);         // Content Length 1
+                this.buffer[5] = (byte)(length & 0xFF00);     // Content Length 0
             }
 
-            return returnOffset;
+            this.buffer[6] = 0;     // Padding
+            this.buffer[7] = 0;     // Reserved
+
+            this.bufferEnd = 8 + length;
+
+            return length;
+        }
+
+        /// <summary>
+        /// Send the record through the connection.
+        /// </summary>
+        /// <param name="stream">Stream of the connection socket.</param>
+        public async Task sendAsync(NetworkStream stream) {
+            await stream.WriteAsync(this.buffer, 0, this.bufferEnd);
+
+            Console.WriteLine($"Sent '{this.bufferEnd}' bytes.");
         }
     }
 }

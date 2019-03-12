@@ -27,9 +27,8 @@ namespace AsyncFastCGI {
         public delegate void RequestEndedDelegate(Request request);
         private RequestEndedDelegate OnRequestEnded;
         private Client.RequestHandlerDelegate requestHandler;
-        private int outputBufferSize;
 
-        public Request(int maxInputSize, int outputBufferSize, Client.RequestHandlerDelegate requestHandler,
+        public Request(int maxInputSize, Client.RequestHandlerDelegate requestHandler,
                 RequestEndedDelegate onRequestEnded) {
 
             this.maxInputSize = maxInputSize;
@@ -37,7 +36,6 @@ namespace AsyncFastCGI {
             this.contentStream = new MemoryStream(4096);
             this.OnRequestEnded = onRequestEnded;
             this.requestHandler = requestHandler;
-            this.outputBufferSize = outputBufferSize;   // Maximum size of OB
         }
 
         /// <summary>
@@ -52,7 +50,7 @@ namespace AsyncFastCGI {
             bool result = false;
             this.contentStream.SetLength(4096);
             this.contentStream.Position = 0;
-            int requestID = 0;
+            UInt16 requestID = 0;
 
             while(true) {
                 result = await record.processInputAsync(stream);
@@ -63,22 +61,22 @@ namespace AsyncFastCGI {
 
                     switch(record.getType()) {
                         case Record.TYPE_BEGIN_REQUEST: {
-                            Console.WriteLine($"Record Type: Begin request. Length: {record.getLength()}");
+                            // Console.WriteLine($"Record Type: Begin request. Length: {record.getLength()}");
                             requestID = record.getRequestID();
                             break;
                         }
                         case Record.TYPE_PARAMS: {
-                            Console.WriteLine($"Record Type: Params. Length: {record.getLength()}");
+                            // Console.WriteLine($"Record Type: Params. Length: {record.getLength()}");
                             break;
                         }
                         case Record.TYPE_STDIN: {
-                            Console.WriteLine($"Record Type: STDIN. Length: {record.getLength()}");
+                            // Console.WriteLine($"Record Type: STDIN. Length: {record.getLength()}");
                             if (record.getContentLength() < 1) {
                                 // Closing record for STDIN
                                 // Pass execution to the client callback
 
                                 Input stdin = new Input(this.contentStream.ToArray(), null);
-                                Output stdout = new Output(connection, requestID, this.outputBufferSize);
+                                Output stdout = new Output(connection, requestID);
                                 await this.requestHandler(stdin, stdout);
                                 connection.Close();
                                 this.OnRequestEnded(this);
@@ -96,15 +94,15 @@ namespace AsyncFastCGI {
                             break;
                         }
                         case Record.TYPE_GET_VALUES: {
-                            Console.WriteLine($"Record Type: Get values. Length: {record.getLength()}");
+                            // Console.WriteLine($"Record Type: Get values. Length: {record.getLength()}");
                             break;
                         }
                         case Record.TYPE_ABORT_REQUEST: {
-                            Console.WriteLine($"Record Type: Abort request. Length: {record.getLength()}");
+                            // Console.WriteLine($"Record Type: Abort request. Length: {record.getLength()}");
                             break;
                         }
                         default: {
-                            Console.WriteLine($"Record Type: {record.getType()}. Length: {record.getLength()}");
+                            // Console.WriteLine($"Record Type: {record.getType()}. Length: {record.getLength()}");
                             break;
                         }
                     }

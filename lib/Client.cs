@@ -88,16 +88,6 @@ namespace AsyncFastCGI
             return this.connectionTimeout;
         }
 
-        private int outputBufferSize = 4096;
-
-        public int getOutputBufferSize() {
-            return this.outputBufferSize;
-        }
-
-        public void setOutputBufferSize(int value) {
-            this.outputBufferSize = value;
-        }
-
         /*
             Managing requests
         */
@@ -127,6 +117,8 @@ namespace AsyncFastCGI
                 throw(new Exception($"The specified port is invalid: {this.port}"));
             }
 
+            Client.initHttpStatuses();
+
             /*
                 Initialize the array of Request objects
             */
@@ -135,8 +127,7 @@ namespace AsyncFastCGI
             this.runningRequests = new HashSet<Request>();
 
             for (int i = 0; i < this.getMaxConcurrentRequests(); i++) {
-                request = new Request(this.getMaxInputSize(), this.getOutputBufferSize(), 
-                    this.requestHandler, this.OnRequestEnded);
+                request = new Request(this.getMaxInputSize(), this.requestHandler, this.OnRequestEnded);
                 this.requests[i] = request;
                 this.freeRequests.Push(request);
             }
@@ -159,7 +150,6 @@ namespace AsyncFastCGI
                     throw(new Exception("Listening socket lost. (Socket.AcceptAsync)", e));
                 }
                 
-                Console.WriteLine("--- New connection");
                 connection.ReceiveTimeout = this.getConnectionTimeout();
                 connection.SendTimeout = this.getConnectionTimeout();
 
