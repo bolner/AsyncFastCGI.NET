@@ -13,11 +13,11 @@ class Program
     {
         var client = new AsyncFastCGI.Client();
 
-        client.setPort(8080);
+        client.setPort(9090);
         client.setBindAddress("0.0.0.0");       // Bind to all interfaces
         client.setMaxConcurrentRequests(256);   // When reached then queued
         client.setMaxInputSize(8388608);        // 8 MB
-        client.setConnectionTimeout(10000);     // 10 seconds
+        client.setConnectionTimeout(2000);      // 2 seconds
         client.requestHandler = Program.requestHandler;
         
         await client.startAsync();
@@ -27,6 +27,7 @@ class Program
     private static async Task requestHandler(AsyncFastCGI.Input input, AsyncFastCGI.Output output) {
         output.setHttpStatus(200);
         output.setHeader("Content-Type", "text/html; charset=utf-8");
+
         await output.writeAsync("<!DOCTYPE html><html><body><h1>Hello World!");
         await output.writeAsync("</h1></body></html>");
         await output.endAsync();
