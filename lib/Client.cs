@@ -117,7 +117,7 @@ namespace AsyncFastCGI
                 throw(new Exception("It isn't allowed to set more than one callback for new requests. (Client.OnNewRequest)"));
             }
 
-        	if (this.port < 1 || this.port > 65535) {
+            if (this.port < 1 || this.port > 65535) {
                 throw(new Exception($"The specified port is invalid: {this.port}"));
             }
 
