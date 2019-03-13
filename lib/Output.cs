@@ -103,11 +103,19 @@ namespace AsyncFastCGI
         /// </summary>
         /// <returns></returns>
         public async Task endAsync() {
+            if (this.ended) {
+                return;
+            }
+
             await this.sendBuffer(true);
 
             this.record.STDOUT(this.requestID, null);
-            await this.record.sendAsync(this.stream);
-
+            try {
+                await this.record.sendAsync(this.stream);
+            } catch (Exception e) {
+                Console.WriteLine(e.ToString());
+            }
+            
             this.ended = true;
         }
 
@@ -179,7 +187,12 @@ namespace AsyncFastCGI
                 }
 
                 this.record.STDOUT(this.requestID, this.fifo);
-                await this.record.sendAsync(this.stream);
+                try {
+                    await this.record.sendAsync(this.stream);
+                } catch (Exception e) {
+                    Console.WriteLine(e.ToString());
+                    this.ended = true;
+                }
             }
         }
     }

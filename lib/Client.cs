@@ -93,7 +93,7 @@ namespace AsyncFastCGI
         */
         private Request[] requests;
         private Stack<Request> freeRequests;
-        private HashSet<Request> runningRequests;
+        // private HashSet<Request> runningRequests;
 
         public Client() {
             
@@ -124,7 +124,7 @@ namespace AsyncFastCGI
             */
             this.requests = new Request[this.getMaxConcurrentRequests()];
             this.freeRequests = new Stack<Request>();
-            this.runningRequests = new HashSet<Request>();
+            // this.runningRequests = new HashSet<Request>();
 
             for (int i = 0; i < this.getMaxConcurrentRequests(); i++) {
                 request = new Request(this.getMaxInputSize(), this.requestHandler, this.OnRequestEnded);
@@ -166,12 +166,16 @@ namespace AsyncFastCGI
         /// </summary>
         /// <returns>A free request to be used.</returns>
         private async Task<Request> fetchFreeRequestOrIdle() {
-            while (this.freeRequests.Count < 1) {
-                await Task.Delay(10);
-            }
+            Request request;
 
-            Request request = this.freeRequests.Pop();
-            this.runningRequests.Add(request);
+            do {
+                while (this.freeRequests.Count < 1) {
+                    await Task.Delay(10);
+                }
+
+                request = this.freeRequests.Pop();
+            } while (request == null);
+            // this.runningRequests.Add(request);
 
             return request;
         }
@@ -182,7 +186,7 @@ namespace AsyncFastCGI
         /// </summary>
         /// <param name="request">The request that ended.</param>
         public void OnRequestEnded(Request request) {
-            this.runningRequests.Remove(request);
+            // this.runningRequests.Remove(request);
             this.freeRequests.Push(request);
         }
 

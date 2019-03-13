@@ -49,7 +49,7 @@ namespace FastCgiExampleApp
                 
                 await client.startAsync();
             } catch (Exception e) {
-                Console.Error.WriteLine(e.Message);
+                Console.Error.WriteLine(e.ToString());
                 Environment.Exit(1);
             }
         }
