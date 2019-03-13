@@ -25,21 +25,21 @@ namespace AsyncFastCGI {
         private Record record;
         MemoryStream contentStream;
 
-        public delegate void RequestEndedDelegate(Request request);
-        private RequestEndedDelegate OnRequestEnded;
         private Client.RequestHandlerDelegate requestHandler;
 
-        public Request(int index, int maxInputSize, Client.RequestHandlerDelegate requestHandler,
-                RequestEndedDelegate onRequestEnded) {
+        public Request(int index, int maxInputSize, Client.RequestHandlerDelegate requestHandler) {
             
             this.index = index;
             this.maxInputSize = maxInputSize;
             this.record = new Record();
             this.contentStream = new MemoryStream(4096);
-            this.OnRequestEnded = onRequestEnded;
             this.requestHandler = requestHandler;
         }
 
+        /// <summary>
+        /// Get the index of the request, by which the Client object identifies it.
+        /// </summary>
+        /// <returns>The integer index of the request.</returns>
         public int getIndex() {
             return this.index;
         }
@@ -49,7 +49,8 @@ namespace AsyncFastCGI {
         /// The caller should not wait on it.
         /// </summary>
         /// <param name="connection">The socket for the new incoming connection.</param>
-        public async void newConnection(Socket connection) {
+        /// <returns>The index of the Request.</returns>
+        public async Task<int> newConnection(Socket connection) {
             this.record.reset();
             NetworkStream stream = new NetworkStream(connection);
             bool result = false;
@@ -85,14 +86,12 @@ namespace AsyncFastCGI {
                                 await this.requestHandler(stdin, stdout);
                                 connection.Shutdown(SocketShutdown.Both);
                                 connection.Disconnect(false);
-                                this.OnRequestEnded(this);
 
-                                return;
+                                return this.index;
                             }
 
                             if (this.contentStream.Length + record.getContentLength() > this.maxInputSize) {
                                 // TODO: Send abort record
-                                this.OnRequestEnded(this);
                             }
 
                             record.addContentToMemoryStream(contentStream);
