@@ -92,7 +92,7 @@ namespace AsyncFastCGI
             Managing requests
         */
         private Request[] requests;
-        private Stack<Request> freeRequests;
+        private Stack<int> freeRequests;
         // private HashSet<Request> runningRequests;
 
         public Client() {
@@ -123,13 +123,13 @@ namespace AsyncFastCGI
                 Initialize the array of Request objects
             */
             this.requests = new Request[this.getMaxConcurrentRequests()];
-            this.freeRequests = new Stack<Request>();
+            this.freeRequests = new Stack<int>();
             // this.runningRequests = new HashSet<Request>();
 
             for (int i = 0; i < this.getMaxConcurrentRequests(); i++) {
-                request = new Request(this.getMaxInputSize(), this.requestHandler, this.OnRequestEnded);
+                request = new Request(i, this.getMaxInputSize(), this.requestHandler, this.OnRequestEnded);
                 this.requests[i] = request;
-                this.freeRequests.Push(request);
+                this.freeRequests.Push(i);
             }
 
             /*
@@ -138,8 +138,8 @@ namespace AsyncFastCGI
             Socket listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             IPEndPoint bindEP = new IPEndPoint(this.bindAddress, this.port);
             listeningSocket.Bind(bindEP);
-            listeningSocket.ReceiveTimeout = 5000;
-            listeningSocket.SendTimeout = 5000;
+            //listeningSocket.ReceiveTimeout = 5000;
+            //listeningSocket.SendTimeout = 5000;
 
             listeningSocket.Listen(this.getMaxConcurrentRequests() * 2);
 
@@ -149,9 +149,13 @@ namespace AsyncFastCGI
                 } catch (Exception e) {
                     throw(new Exception("Listening socket lost. (Socket.AcceptAsync)", e));
                 }
+
+                if (connection == null) {
+                    await Task.Delay(10);
+                }
                 
-                connection.ReceiveTimeout = this.getConnectionTimeout();
-                connection.SendTimeout = this.getConnectionTimeout();
+                //connection.ReceiveTimeout = this.getConnectionTimeout();
+                //connection.SendTimeout = this.getConnectionTimeout();
 
                 request = await this.fetchFreeRequestOrIdle();
 
@@ -166,18 +170,15 @@ namespace AsyncFastCGI
         /// </summary>
         /// <returns>A free request to be used.</returns>
         private async Task<Request> fetchFreeRequestOrIdle() {
-            Request request;
-
             do {
                 while (this.freeRequests.Count < 1) {
                     await Task.Delay(10);
                 }
 
-                request = this.freeRequests.Pop();
-            } while (request == null);
-            // this.runningRequests.Add(request);
-
-            return request;
+                if (this.freeRequests.Count > 0) {
+                    return this.requests[this.freeRequests.Pop()];
+                }
+            } while (true);
         }
 
         /// <summary>
@@ -187,7 +188,7 @@ namespace AsyncFastCGI
         /// <param name="request">The request that ended.</param>
         public void OnRequestEnded(Request request) {
             // this.runningRequests.Remove(request);
-            this.freeRequests.Push(request);
+            this.freeRequests.Push(request.getIndex());
         }
 
         /// <summary>

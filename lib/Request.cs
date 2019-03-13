@@ -20,6 +20,7 @@ using System.Threading.Tasks;
 
 namespace AsyncFastCGI {
     class Request {
+        private int index;
         private int maxInputSize;
         private Record record;
         MemoryStream contentStream;
@@ -28,14 +29,19 @@ namespace AsyncFastCGI {
         private RequestEndedDelegate OnRequestEnded;
         private Client.RequestHandlerDelegate requestHandler;
 
-        public Request(int maxInputSize, Client.RequestHandlerDelegate requestHandler,
+        public Request(int index, int maxInputSize, Client.RequestHandlerDelegate requestHandler,
                 RequestEndedDelegate onRequestEnded) {
-
+            
+            this.index = index;
             this.maxInputSize = maxInputSize;
             this.record = new Record();
             this.contentStream = new MemoryStream(4096);
             this.OnRequestEnded = onRequestEnded;
             this.requestHandler = requestHandler;
+        }
+
+        public int getIndex() {
+            return this.index;
         }
 
         /// <summary>
@@ -46,10 +52,9 @@ namespace AsyncFastCGI {
         public async void newConnection(Socket connection) {
             this.record.reset();
             NetworkStream stream = new NetworkStream(connection);
-            Record record = new Record();
             bool result = false;
-            this.contentStream.SetLength(4096);
             this.contentStream.Position = 0;
+            this.contentStream.SetLength(4096);
             UInt16 requestID = 0;
 
             while(true) {
@@ -78,7 +83,8 @@ namespace AsyncFastCGI {
                                 Input stdin = new Input(this.contentStream.ToArray(), null);
                                 Output stdout = new Output(connection, requestID);
                                 await this.requestHandler(stdin, stdout);
-                                connection.Close();
+                                connection.Shutdown(SocketShutdown.Both);
+                                connection.Disconnect(false);
                                 this.OnRequestEnded(this);
 
                                 return;
