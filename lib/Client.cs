@@ -100,6 +100,9 @@ namespace AsyncFastCGI
             
         }
 
+        /// <summary>
+        /// Main entry point of the client library.
+        /// </summary>
         public async Task startAsync()
         {
             Socket connection = null;
@@ -163,8 +166,8 @@ namespace AsyncFastCGI
         }
 
         /// <summary>
-        /// Fetch a free request if any. Otherwise await 10 ms
-        /// if the concurrent request capacity is exhausted.
+        /// Fetch a free request if any, otherwise wait for a
+        /// request to complete.
         /// </summary>
         /// <returns>A free request to be used.</returns>
         private async Task<Request> fetchFreeRequestOrIdle() {
@@ -180,6 +183,7 @@ namespace AsyncFastCGI
         }
 
         /// <summary>
+        /// Returns the text for an HTTP status code.
         /// Example: returns "Not Found" for code 404.
         /// </summary>
         /// <param name="httpStatusCode"></param>

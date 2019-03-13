@@ -57,6 +57,7 @@ namespace FastCgiExampleApp
         private static async Task requestHandler(AsyncFastCGI.Input input, AsyncFastCGI.Output output) {
             output.setHttpStatus(200);
             output.setHeader("Content-Type", "text/html; charset=utf-8");
+            
             await output.writeAsync("<!DOCTYPE html><html><body><h1>Hello World!");
             await output.writeAsync("</h1></body></html>");
             await output.endAsync();
