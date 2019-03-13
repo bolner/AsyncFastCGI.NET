@@ -95,7 +95,6 @@ namespace AsyncFastCGI
         private Task<int>[] tasks;
         private Task<int> emptyTask;
         private Stack<int> freeRequests;
-        // private HashSet<Request> runningRequests;
 
         public Client() {
             
@@ -128,7 +127,6 @@ namespace AsyncFastCGI
             this.freeRequests = new Stack<int>();
             this.tasks = new Task<int>[this.getMaxConcurrentRequests()];
             this.emptyTask = new Task<int>(() => { return 0; });
-            // this.runningRequests = new HashSet<Request>();
 
             for (int i = 0; i < this.getMaxConcurrentRequests(); i++) {
                 request = new Request(i, this.getMaxInputSize(), this.requestHandler);
