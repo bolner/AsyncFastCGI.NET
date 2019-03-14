@@ -24,37 +24,61 @@ namespace AsyncFastCGI
     class Client
     {
         public delegate Task RequestHandlerDelegate(AsyncFastCGI.Input input, AsyncFastCGI.Output output);
-        public RequestHandlerDelegate requestHandler;
+
+        /// <summary>
+        /// Set here the async callback, that should
+        /// be called to handle incoming requests.
+        /// </summary>
+        public RequestHandlerDelegate RequestHandler;
 
         private static Dictionary<int, string> httpStatuses;
 
-        private int port = 8080;
+        private int port;
 
-        public void setPort(int port)
+        /// <summary>
+        /// Set the port on which the library is listening for
+        /// connections from the webserver.
+        /// </summary>
+        /// <param name="port">Listening port. Usually: 1025 - 65535</param>
+        public void SetPort(int port)
         {
             this.port = port;
         }
 
-        public int getPort()
+        public int GetPort()
         {
             return this.port;
         }
 
-        private int maxConcurrentRequests = 256;
+        private int maxConcurrentRequests;
 
-        public void setMaxConcurrentRequests(int maxConcurrentRequests)
+        /// <summary>
+        /// Set the maximum number of requests that
+        /// can run in parallel.
+        /// </summary>
+        /// <param name="maxConcurrentRequests">Typical range: 50 - 500</param>
+        public void SetMaxConcurrentRequests(int maxConcurrentRequests)
         {
             this.maxConcurrentRequests = maxConcurrentRequests;
         }
 
-        public int getMaxConcurrentRequests()
+        public int GetMaxConcurrentRequests()
         {
             return this.maxConcurrentRequests;
         }
 
-        private IPAddress bindAddress = IPAddress.Parse("0.0.0.0");
+        private IPAddress bindAddress;
 
-        public void setBindAddress(string bindAddress)
+        /// <summary>
+        /// This is a security feature. You can limit where your
+        /// FastCGI client is accessible from. By setting it
+        /// to "0.0.0.0", its port is accessible from anywhere
+        /// on your local network (or internet), but if you
+        /// set it to "127.0.0.1", then it's only accessible
+        /// from the localhost.
+        /// </summary>
+        /// <param name="bindAddress"></param>
+        public void SetBindAddress(string bindAddress)
         {
             try {
                 this.bindAddress = IPAddress.Parse(bindAddress);
@@ -63,29 +87,33 @@ namespace AsyncFastCGI
             }
         }
 
-        public string getBindAddress()
+        public string GetBindAddress()
         {
             return this.bindAddress.ToString();
         }
 
-        private int maxInputSize = 2097152; // 2 MB
+        private int connectionTimeout;
 
-        public void setMaxInputSize(int maxInputSize) {
-            this.maxInputSize = maxInputSize;
-        }
-
-        public int getMaxInputSize() {
-            return this.maxInputSize;
-        }
-
-        private int connectionTimeout = 5000;
-
-        public void setConnectionTimeout(int ms) {
+        public void SetConnectionTimeout(int ms) {
             this.connectionTimeout = ms;
         }
 
-        public int getConnectionTimeout() {
+        public int GetConnectionTimeout() {
             return this.connectionTimeout;
+        }
+
+        private int maxHeaderSize;
+
+        public int GetMaxHeaderSize() {
+            return this.maxHeaderSize;
+        }
+
+        /// <summary>
+        /// Set the maximum allowed size for HTTP headers.
+        /// </summary>
+        /// <param name="value">The maximum allowed size for HTTP headers.</param>
+        public void SetMaxHeaderSize(int value) {
+            this.maxHeaderSize = value;
         }
 
         /*
@@ -93,22 +121,29 @@ namespace AsyncFastCGI
         */
         private Request[] requests;
         private Task<int>[] tasks;
-        private Task<int> emptyTask;
-        private Stack<int> freeRequests;
 
+        /// <summary>
+        /// Constructor. Setting defaults.
+        /// </summary>
         public Client() {
-            
+            /*
+                Defaults
+            */
+            this.port = 8080;
+            this.maxConcurrentRequests = 256;
+            this.bindAddress = IPAddress.Parse("0.0.0.0");  // Listen on all interfaces
+            this.connectionTimeout = 5000;  // 5 sec
+            this.maxHeaderSize = 16384; // 16 KB
         }
 
         /// <summary>
         /// Main entry point of the client library.
         /// </summary>
-        public async Task startAsync()
+        public async Task StartAsync()
         {
             Socket connection = null;
-            Request request = null;
 
-            int callbackCount = this.requestHandler.GetInvocationList().Length;
+            int callbackCount = this.RequestHandler.GetInvocationList().Length;
             if (callbackCount < 1) {
                 throw(new Exception("Please set a callback for new requests. (Client.OnNewRequest)"));
             }
@@ -121,22 +156,13 @@ namespace AsyncFastCGI
                 throw(new Exception($"The specified port is invalid: {this.port}"));
             }
 
-            Client.initHttpStatuses();
+            Client.InitHttpStatuses();
 
             /*
                 Initialize the array of Request objects
             */
-            this.requests = new Request[this.getMaxConcurrentRequests()];
-            this.freeRequests = new Stack<int>();
-            this.tasks = new Task<int>[this.getMaxConcurrentRequests()];
-            this.emptyTask = new Task<int>(() => { return 0; });
-
-            for (int i = 0; i < this.getMaxConcurrentRequests(); i++) {
-                request = new Request(i, this.getMaxInputSize(), this.requestHandler);
-                this.requests[i] = request;
-                this.tasks[i] = this.emptyTask;
-                this.freeRequests.Push(i);
-            }
+            this.requests = new Request[this.GetMaxConcurrentRequests()];
+            this.tasks = new Task<int>[this.GetMaxConcurrentRequests()];
 
             /*
                 Listen on socket, wait for the webserver to connect.
@@ -147,39 +173,51 @@ namespace AsyncFastCGI
             listeningSocket.ReceiveTimeout = 5000;
             listeningSocket.SendTimeout = 5000;
 
-            listeningSocket.Listen(this.getMaxConcurrentRequests() * 2);
+            listeningSocket.Listen(this.GetMaxConcurrentRequests() * 2);
 
+            /*
+                First fill the arrays with Requests and Tasks as
+                the new connections arrive.
+            */
+            for (int i = 0; i < this.GetMaxConcurrentRequests(); i++) {
+                connection = await this.AcceptConnection(listeningSocket);
+
+                this.requests[i] = new Request(i, this.RequestHandler, this.GetMaxHeaderSize());
+                this.tasks[i] = this.requests[i].NewConnection(connection);
+            }
+
+            /*
+                When they got full, then go into a loop of waiting
+                on finished tasks before accepting new connections.
+                Re-use the Request objects.
+            */
             while(true) {
-                try {
-                    connection = await listeningSocket.AcceptAsync();
-                } catch (Exception e) {
-                    throw(new Exception("Listening socket lost. (Socket.AcceptAsync)", e));
-                }
-
-                connection.ReceiveTimeout = this.getConnectionTimeout();
-                connection.SendTimeout = this.getConnectionTimeout();
-
-                // Wait until there's a free request for the new incoming connection.
-                request = await this.fetchFreeRequestOrIdle();
-                this.tasks[request.getIndex()] = request.newConnection(connection);
+                int index = (await Task.WhenAny(this.tasks)).Result;
+                connection = await this.AcceptConnection(listeningSocket);
+                this.tasks[index] = this.requests[index].NewConnection(connection);
             }
         }
 
         /// <summary>
-        /// Fetch a free request if any, otherwise wait for a
-        /// request to complete.
+        /// Waits for an incoming connection from the webserver,
+        /// then configures its socket.
         /// </summary>
-        /// <returns>A free request to be used.</returns>
-        private async Task<Request> fetchFreeRequestOrIdle() {
-            int index;
+        /// <param name="listeningSocket"></param>
+        /// <returns></returns>
+        private async Task<Socket> AcceptConnection(Socket listeningSocket) {
+            Socket connection;
 
-            if (this.freeRequests.Count > 0) {
-                index = this.freeRequests.Pop();
-            } else {
-                index = (await Task.WhenAny(this.tasks)).Result;
+            try {
+                connection = await listeningSocket.AcceptAsync();
+            } catch (Exception e) {
+                throw(new Exception("Listening socket lost. (Socket.AcceptAsync)", e));
             }
 
-            return this.requests[index];
+            // Configure the socket of the connection
+            connection.ReceiveTimeout = this.GetConnectionTimeout();
+            connection.SendTimeout = this.GetConnectionTimeout();
+
+            return connection;
         }
 
         /// <summary>
@@ -188,7 +226,7 @@ namespace AsyncFastCGI
         /// </summary>
         /// <param name="httpStatusCode"></param>
         /// <returns>Text representation of the code.</returns>
-        public static string getHttpStatusText(int httpStatusCode) {
+        public static string GetHttpStatusText(int httpStatusCode) {
             if (!Client.httpStatuses.ContainsKey(httpStatusCode)) {
                 return "";
             }
@@ -199,7 +237,7 @@ namespace AsyncFastCGI
         /// <summary>
         /// Initialize the dictionary of HTTP status codes/texts.
         /// </summary>
-        private static void initHttpStatuses() {
+        private static void InitHttpStatuses() {
             Client.httpStatuses = new Dictionary<int, string>();
 
             Client.httpStatuses[100] = "Continue";

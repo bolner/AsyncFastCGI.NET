@@ -31,19 +31,19 @@ namespace AsyncFastCGI
         private bool headerSent = false;
         private Dictionary<string, string> header;
         private int httpStatus = 200;
-        private FifoMemoryStream fifo;
+        private FifoStream fifo;
 
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="connection">Socket of the client connection.</param>
+        /// <param name="request">Socket of the client connection.</param>
         /// <param name="requestID">FastCGI request ID</param>
-        public Output(Socket connection, UInt16 requestID) {
-            this.connection = connection;
-            this.stream = new NetworkStream(connection);
+        public Output(Socket request, NetworkStream stream, UInt16 requestID) {
+            this.connection = request;
+            this.stream = stream;
             this.requestID = requestID;
             this.header = new Dictionary<string, string>();
-            this.fifo = new FifoMemoryStream();
+            this.fifo = new FifoStream();
             this.record = new Record();
 
             // Default headers (can be overwritten)
@@ -58,7 +58,7 @@ namespace AsyncFastCGI
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
-        public async Task writeAsync(string data) {
+        public async Task WriteAsync(string data) {
             if (this.ended) {
                 return;
             }
@@ -102,7 +102,7 @@ namespace AsyncFastCGI
         /// and close the FastCGI STDOUT with an empty record.
         /// </summary>
         /// <returns></returns>
-        public async Task endAsync() {
+        public async Task EndAsync() {
             if (this.ended) {
                 return;
             }
@@ -123,7 +123,7 @@ namespace AsyncFastCGI
         /// Returns true if the output has been closed already, false otherwise.
         /// </summary>
         /// <returns>bool</returns>
-        public bool isEnded() {
+        public bool IsEnded() {
             return this.ended;
         }
 
@@ -131,16 +131,17 @@ namespace AsyncFastCGI
         /// Set the HTTP response status.
         /// </summary>
         /// <param name="status">HTTP response status.await Example: 200</param>
-        public void setHttpStatus(int status) {
+        public void SetHttpStatus(int status) {
             this.httpStatus = status;
         }
 
         /// <summary>
-        /// Set HTTP header.
+        /// Set HTTP header. You have to set all headers before you start to
+        /// write the output.
         /// </summary>
         /// <param name="name">Name of the header entry. Example: "Content-Type"</param>
         /// <param name="value">Value of the header entry. Example: "text/html; charset=utf-8"</param>
-        public void setHeader(string name, string value) {
+        public void SetHeader(string name, string value) {
             this.header[name] = value;
         }
 
@@ -149,7 +150,7 @@ namespace AsyncFastCGI
         /// Call it after the first call to a "Write" method.
         /// </summary>
         private void writeHeader() {
-            string codeText = Client.getHttpStatusText(this.httpStatus);
+            string codeText = Client.GetHttpStatusText(this.httpStatus);
             if (codeText == "") {
                 this.fifo.write(
                     Encoding.UTF8.GetBytes($"HTTP/1.1 {this.httpStatus}\r\n")
@@ -181,8 +182,8 @@ namespace AsyncFastCGI
         /// if it's not exactly 65535 bytes. True: send all.</param>
         /// <returns></returns>
         private async Task sendBuffer(bool sendLeftover = false) {
-            while(this.fifo.getLength() > 0) {
-                if (!sendLeftover && this.fifo.getLength() < Record.MAX_CONTENT_SIZE) {
+            while(this.fifo.GetLength() > 0) {
+                if (!sendLeftover && this.fifo.GetLength() < Record.MAX_CONTENT_SIZE) {
                     return;
                 }
 

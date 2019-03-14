@@ -17,9 +17,30 @@ using System;
 using System.Collections.Generic;
 
 namespace AsyncFastCGI {
-    class FifoMemoryStream {
+    /// <summary>
+    /// This class helps the memory-efficient handling of chunks of binary
+    /// data. Its helps to avoid memory allocations and copying.
+    /// Mostly used in the binary representation of strings, produced by
+    /// the client application for output, and in the input data
+    /// processing.
+    /// </summary>
+    class FifoStream {
+        /// <summary>
+        /// The amount of data in the stream,
+        /// which hasn't been read.
+        /// </summary>
         private int length;
 
+        /// <summary>
+        /// The data is encapsulated into these objects.
+        /// It helps in reading an arbitrary amount, 
+        /// regardless of the chunk sizes.
+        /// The "offset" shows which part of the data is
+        /// read already, if points to the first byte which
+        /// hasn't been read.
+        /// When a segment is fully read, it is removed
+        /// from the FifoStream.
+        /// </summary>
         private class Segment {
             public byte[] data;
             public int offset;
@@ -30,9 +51,12 @@ namespace AsyncFastCGI {
             }
         }
 
-        List<Segment> buffer;
+        private List<Segment> buffer;
 
-        public FifoMemoryStream() {
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        public FifoStream() {
             this.length = 0;
             this.buffer = new List<Segment>();
         }
@@ -41,7 +65,7 @@ namespace AsyncFastCGI {
         /// Get the number of bytes in the FIFO stream.
         /// </summary>
         /// <returns></returns>
-        public int getLength() {
+        public int GetLength() {
             return this.length;
         }
 

@@ -40,27 +40,27 @@ namespace FastCgiExampleApp
                 */
                 var client = new AsyncFastCGI.Client();
 
-                client.setPort(port);                   // The port was passed as command line argument
-                client.setBindAddress("0.0.0.0");       // Bind to all interfaces
-                client.setMaxConcurrentRequests(256);   // Requests that are running in parallel
-                client.setMaxInputSize(8388608);        // 8 MB
-                client.setConnectionTimeout(10000);     // 10 seconds
-                client.requestHandler = Program.requestHandler;
+                client.SetPort(port);                   // The port was passed as command line argument
+                client.SetBindAddress("0.0.0.0");       // Bind to all interfaces
+                client.SetMaxConcurrentRequests(256);   // Requests that are running in parallel
+                client.SetConnectionTimeout(10000);     // 10 seconds
+                client.SetMaxHeaderSize(16384);         // 16 KB. Max HTTP header length
+                client.RequestHandler = Program.RequestHandler;
                 
-                await client.startAsync();
+                await client.StartAsync();
             } catch (Exception e) {
                 Console.Error.WriteLine(e.ToString());
                 Environment.Exit(1);
             }
         }
 
-        private static async Task requestHandler(AsyncFastCGI.Input input, AsyncFastCGI.Output output) {
-            output.setHttpStatus(200);
-            output.setHeader("Content-Type", "text/html; charset=utf-8");
+        private static async Task RequestHandler(AsyncFastCGI.Input input, AsyncFastCGI.Output output) {
+            output.SetHttpStatus(200);
+            output.SetHeader("Content-Type", "text/html; charset=utf-8");
             
-            await output.writeAsync("<!DOCTYPE html><html><body><h1>Hello World!");
-            await output.writeAsync("</h1></body></html>");
-            await output.endAsync();
+            await output.WriteAsync("<!DOCTYPE html><html><body><h1>Hello World!");
+            await output.WriteAsync("</h1></body></html>");
+            await output.EndAsync();
         }
     }
 }

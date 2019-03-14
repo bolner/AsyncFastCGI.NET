@@ -99,7 +99,7 @@ namespace AsyncFastCGI {
         /// stream until at least one complete record is reconstructed.
         /// </summary>
         /// <returns>True if a complete record has been reconstructed, false otherwise.</returns>
-        public async Task<bool> processInputAsync(NetworkStream stream) {
+        public async Task<bool> ProcessInputAsync(NetworkStream stream) {
             bool skipRead = false;
             if (this.completeRecordReconstructed) {
                 skipRead = this.startNextRecord();
@@ -189,8 +189,15 @@ namespace AsyncFastCGI {
             return this.buffer[HEADER_SIZE + 2] > 0;
         }
 
-        public void addContentToMemoryStream(MemoryStream stream) {
-            stream.Write(this.buffer, HEADER_SIZE, this.recordContentLength);
+        /// <summary>
+        /// Makes a copy of the content data, and pushes it into
+        /// the passed FIFO stream.
+        /// </summary>
+        /// <param name="stream">The stream which receives the data</param>
+        public void CopyContentTo(FifoStream stream) {
+            byte[] data = new byte[this.recordContentLength];
+            Array.Copy(this.buffer, HEADER_SIZE, data, 0, this.recordContentLength);
+            stream.write(data);
         }
 
         /// <summary>
@@ -199,7 +206,7 @@ namespace AsyncFastCGI {
         /// <param name="requestID">FastCGI request ID</param>
         /// <param name="fifo">Data source. Pass null to create an empty closing record.</param>
         /// <returns>Number of bytes transferred from the FIFO stream.</returns>
-        public int STDOUT(UInt16 requestID, FifoMemoryStream fifo) {
+        public int STDOUT(UInt16 requestID, FifoStream fifo) {
             /*
                 Set content
             */

@@ -21,26 +21,31 @@ using System.Threading.Tasks;
 namespace AsyncFastCGI {
     class Request {
         private int index;
-        private int maxInputSize;
-        private Record record;
-        MemoryStream contentStream;
+        private Record inputRecord;
+        private Record outputRecord;
+        private int maxHeaderSize;
 
         private Client.RequestHandlerDelegate requestHandler;
 
-        public Request(int index, int maxInputSize, Client.RequestHandlerDelegate requestHandler) {
-            
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="index">The index of the request, by which the Client object identifies it.</param>
+        /// <param name="requestHandler">The client callback, which handles the incoming HTTP requests.</param>
+        /// <param name="maxHeaderSize">The maximum allowed HTTP header size.</param>
+        public Request(int index, Client.RequestHandlerDelegate requestHandler, int maxHeaderSize) {
             this.index = index;
-            this.maxInputSize = maxInputSize;
-            this.record = new Record();
-            this.contentStream = new MemoryStream(4096);
+            this.inputRecord = new Record();
+            this.outputRecord = new Record();
             this.requestHandler = requestHandler;
+            this.maxHeaderSize = maxHeaderSize;
         }
 
         /// <summary>
         /// Get the index of the request, by which the Client object identifies it.
         /// </summary>
         /// <returns>The integer index of the request.</returns>
-        public int getIndex() {
+        public int GetIndex() {
             return this.index;
         }
 
@@ -48,71 +53,20 @@ namespace AsyncFastCGI {
         /// Handles new incoming connections.
         /// The caller should not wait on it.
         /// </summary>
-        /// <param name="connection">The socket for the new incoming connection.</param>
+        /// <param name="request">The socket for the new incoming connection.</param>
         /// <returns>The index of the Request.</returns>
-        public async Task<int> newConnection(Socket connection) {
-            this.record.reset();
-            NetworkStream stream = new NetworkStream(connection);
-            bool result = false;
-            this.contentStream.Position = 0;
-            this.contentStream.SetLength(4096);
-            UInt16 requestID = 0;
+        public async Task<int> NewConnection(Socket request) {
+            NetworkStream stream = new NetworkStream(request);
+            Input stdin = new Input(request, stream, this.inputRecord, this.maxHeaderSize);
+            await stdin.Initialize();
+            Output stdout = new Output(request, stream, stdin.GetFastCgiRequestID());
 
-            while(true) {
-                result = await record.processInputAsync(stream);
+            await this.requestHandler(stdin, stdout);
 
-                if (result) {
-                    // A complete record has been reconstructed.
-                    //  (The next call to processInputAsync will reset the state of the record.)
+            request.Shutdown(SocketShutdown.Both);
+            request.Disconnect(false);
 
-                    switch(record.getType()) {
-                        case Record.TYPE_BEGIN_REQUEST: {
-                            // Console.WriteLine($"Record Type: Begin request. Length: {record.getLength()}");
-                            requestID = record.getRequestID();
-                            break;
-                        }
-                        case Record.TYPE_PARAMS: {
-                            // Console.WriteLine($"Record Type: Params. Length: {record.getLength()}");
-                            break;
-                        }
-                        case Record.TYPE_STDIN: {
-                            // Console.WriteLine($"Record Type: STDIN. Length: {record.getLength()}");
-                            if (record.getContentLength() < 1) {
-                                // Closing record for STDIN
-                                // Pass execution to the client callback
-
-                                Input stdin = new Input(this.contentStream.ToArray(), null);
-                                Output stdout = new Output(connection, requestID);
-                                await this.requestHandler(stdin, stdout);
-                                connection.Shutdown(SocketShutdown.Both);
-                                connection.Disconnect(false);
-
-                                return this.index;
-                            }
-
-                            if (this.contentStream.Length + record.getContentLength() > this.maxInputSize) {
-                                // TODO: Send abort record
-                            }
-
-                            record.addContentToMemoryStream(contentStream);
-
-                            break;
-                        }
-                        case Record.TYPE_GET_VALUES: {
-                            // Console.WriteLine($"Record Type: Get values. Length: {record.getLength()}");
-                            break;
-                        }
-                        case Record.TYPE_ABORT_REQUEST: {
-                            // Console.WriteLine($"Record Type: Abort request. Length: {record.getLength()}");
-                            break;
-                        }
-                        default: {
-                            // Console.WriteLine($"Record Type: {record.getType()}. Length: {record.getLength()}");
-                            break;
-                        }
-                    }
-                }
-            }
+            return this.index;
         }
     }
 }
