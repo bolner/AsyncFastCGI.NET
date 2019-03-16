@@ -30,6 +30,7 @@ namespace AsyncFastCGI {
         /// which hasn't been read.
         /// </summary>
         private int length;
+        private bool isLittleEndian;
 
         /// <summary>
         /// The data is encapsulated into these objects.
@@ -61,6 +62,7 @@ namespace AsyncFastCGI {
             this.length = 0;
             this.buffer = new List<Segment>();
             this.workBuffer = new byte[workBufferSize];
+            this.isLittleEndian = BitConverter.IsLittleEndian;
         }
 
         /// <summary>
@@ -165,25 +167,17 @@ namespace AsyncFastCGI {
             string value;
 
             while(cursor < length) {
-                nameLength = ParseNameValueLength(cursor);
+                nameLength = ParseNameValueLength(ref cursor, length);
                 if (nameLength == -1) {
                     break;
-                } else if (nameLength <= 127) {
-                    cursor++;
-                } else {
-                    cursor += 4;
                 }
 
-                valueLength = ParseNameValueLength(cursor);
+                valueLength = ParseNameValueLength(ref cursor, length);
                 if (valueLength == -1) {
                     break;
-                } else if (valueLength <= 127) {
-                    cursor++;
-                } else {
-                    cursor += 4;
                 }
 
-                if (cursor + nameLength + valueLength >= this.workBuffer.Length - 1) {
+                if (cursor + nameLength + valueLength >= length - 1) {
                     break;
                 }
 
@@ -198,21 +192,31 @@ namespace AsyncFastCGI {
             return dict;
         }
 
-        private int ParseNameValueLength(int cursor) {
-            if (cursor >= this.workBuffer.Length - 1) {
+        private int ParseNameValueLength(ref int cursor, int bufferSize) {
+            if (cursor >= bufferSize - 1) {
                 return -1;
             }
 
             if (this.workBuffer[cursor] <= 127) {
-                return this.workBuffer[cursor];
+                return this.workBuffer[cursor++];
             }
 
-            if (cursor + 4 >= this.workBuffer.Length) {
+            if (cursor + 3 >= bufferSize - 1) {
                 return -1;
             }
 
-            return ((this.workBuffer[cursor] & 0x7f) << 24) + (this.workBuffer[cursor + 1] << 16)
-                + (this.workBuffer[cursor + 2] << 8) + this.workBuffer[cursor + 3];
+            int lenght;
+
+            if (this.isLittleEndian) {
+                lenght = ((this.workBuffer[cursor] & 0x7f) << 24) + (this.workBuffer[cursor + 1] << 16)
+                    + (this.workBuffer[cursor + 2] << 8) + this.workBuffer[cursor + 3];
+            } else {
+                lenght = ((this.workBuffer[cursor] & 0x7f)) + (this.workBuffer[cursor + 1] >> 8)
+                    + (this.workBuffer[cursor + 2] >> 16) + (this.workBuffer[cursor + 3] >> 24);
+            }
+
+            cursor += 4;
+            return lenght;
         }
     }
 }

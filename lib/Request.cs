@@ -61,31 +61,40 @@ namespace AsyncFastCGI {
         /// <returns>The index of the Request.</returns>
         public async Task<int> NewConnection(Socket request) {
             NetworkStream stream = new NetworkStream(request);
-            Input stdin;
-            Output stdout;
+            Input input;
+            Output output;
 
             do {
-                stdin = new Input(request, stream, this.inputRecord, this.inputBuffer, this.maxHeaderSize);
+                input = new Input(request, stream, this.inputRecord, this.inputBuffer, this.maxHeaderSize);
 
                 try {
-                    await stdin.Initialize();
-                } catch (ClientException) {
+                    await input.Initialize();
+                } catch (ClientException e) {
                     // TODO: log error
+                    Console.WriteLine(e.Message);
                     request.Close();
                     return this.index;
                 }
                 
-                stdout = new Output(request, stream, stdin.GetFastCgiRequestID(), this.outputRecord, this.outputBuffer);
+                output = new Output(input, request, stream, input.GetFastCgiRequestID(), this.outputRecord, this.outputBuffer);
 
                 try {
-                    await this.requestHandler(stdin, stdout);
-                } catch (ClientException) {
+                    await this.requestHandler(input, output);
+
+                    if (!output.IsEnded()) {
+                        await output.EndAsync();
+                    }
+                } catch (ClientException e) {
                     // TODO: log error
+                    Console.WriteLine(e.Message);
                     request.Close();
                     return this.index;
                 }
-            } while (stdin.IsKeepConnection());
 
+                await stream.FlushAsync();
+            } while (input.IsKeepConnection());
+
+            // request.Shutdown(SocketShutdown.Both);
             request.Disconnect(false);
             return this.index;
         }

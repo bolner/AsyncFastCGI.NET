@@ -250,6 +250,57 @@ namespace AsyncFastCGI {
         }
 
         /// <summary>
+        /// Converts this record into type "END_REQUEST".
+        /// </summary>
+        /// <param name="requestID">FastCGI request ID</param>
+        /// <param name="appStatus">Return 0 for success, or an error code otherwise.</param>
+        /// <param name="protocolStatus">See the FastCGI specification for possible values.</param>
+        public void END_REQUEST(UInt16 requestID, int appStatus, byte protocolStatus) {
+            /*
+                Set header
+            */
+            this.buffer[0] = (byte)1;                   // Version
+            this.buffer[1] = (byte)TYPE_END_REQUEST;    // Type
+
+            if (isLittleEndian) {
+                this.buffer[2] = (byte)(requestID >> 8);      // Request ID 1
+                this.buffer[3] = (byte)(requestID & 0x00FF);  // Request ID 0
+
+                this.buffer[4] = (byte)0;                     // Content Length 1
+                this.buffer[5] = (byte)6;                     // Content Length 0
+            } else {
+                this.buffer[2] = (byte)(requestID << 8);      // Request ID 1
+                this.buffer[3] = (byte)(requestID & 0xFF00);  // Request ID 0
+
+                this.buffer[4] = (byte)0;                     // Content Length 1
+                this.buffer[5] = (byte)6;                     // Content Length 0
+            }
+
+            this.buffer[6] = 0;     // Padding
+            this.buffer[7] = 0;     // Reserved
+
+            /*
+                Set content
+            */
+            if (this.isLittleEndian) {
+                this.buffer[8] = (byte)(appStatus >> 24);
+                this.buffer[9] = (byte)(appStatus >> 16);
+                this.buffer[10] = (byte)(appStatus >> 8);
+                this.buffer[11] = (byte)appStatus;
+            } else {
+                this.buffer[8] = (byte)appStatus;
+                this.buffer[9] = (byte)(appStatus << 8);
+                this.buffer[10] = (byte)(appStatus << 16);
+                this.buffer[11] = (byte)(appStatus << 24);
+            }
+
+            this.buffer[12] = protocolStatus;
+            this.buffer[13] = 0;
+
+            this.bufferEnd = 8 + 6;
+        }
+
+        /// <summary>
         /// Send the record through the connection.
         /// </summary>
         /// <param name="stream">Stream of the connection socket.</param>

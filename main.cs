@@ -60,9 +60,11 @@ namespace FastCgiExampleApp
         private static async Task RequestHandler(AsyncFastCGI.Input input, AsyncFastCGI.Output output) {
             output.SetHttpStatus(200);
             output.SetHeader("Content-Type", "text/html; charset=utf-8");
-            
+
+            string text = input.GetParametersAsText();
+
             await output.WriteAsync("<!DOCTYPE html><html><body><h1>Hello World!");
-            await output.WriteAsync("</h1></body></html>");
+            await output.WriteAsync($"</h1><br><pre>{text}</pre></body></html>");
             await output.EndAsync();
         }
     }

@@ -37,7 +37,7 @@ class Program
 
 ## Benchmark results
 
-Running 4 processes of the example `main.cs` application behind an Nginx webserver on an i7-8559U CPU (embedded, low performance). The concurrency is 400, so 400 connections are open at the same time.
+Running 4 processes of the example `main.cs` application (which currently returns all headers and system parameters) behind an Nginx webserver on an i7-8559U CPU (embedded, low performance). The concurrency is 400, so 400 connections are open at the same time.
 
     ab -c 400 -n 50000 127.0.0.1/csharp
 
@@ -48,37 +48,36 @@ Output:
     Server Port:            80
 
     Document Path:          /csharp
-    Document Length:        62 bytes
+    Document Length:        512 bytes
 
     Concurrency Level:      400
-    Time taken for tests:   3.763 seconds
-    Complete requests:      50000
+    Time taken for tests:   8.664 seconds
+    Complete requests:      200000
     Failed requests:        0
-    Keep-Alive requests:    0
-    Total transferred:      11400000 bytes
-    HTML transferred:       3100000 bytes
-    Requests per second:    13286.41 [#/sec] (mean)
-    Time per request:       30.106 [ms] (mean)
-    Time per request:       0.075 [ms] (mean, across all concurrent requests)
-    Transfer rate:          2958.30 [Kbytes/sec] received
+    Total transferred:      135600000 bytes
+    HTML transferred:       102400000 bytes
+    Requests per second:    23084.99 [#/sec] (mean)
+    Time per request:       17.327 [ms] (mean)
+    Time per request:       0.043 [ms] (mean, across all concurrent requests)
+    Transfer rate:          15284.79 [Kbytes/sec] received
 
     Connection Times (ms)
                 min  mean[+/-sd] median   max
-    Connect:        0    5  63.0      1    1031
-    Processing:     0   20  96.4      7    1228
-    Waiting:        0   19  96.4      6    1228
-    Total:          0   25 115.3      8    2233
+    Connect:        0    2  28.7      0    1027
+    Processing:     0   14  93.6      8    3861
+    Waiting:        0   14  93.6      8    3861
+    Total:          0   16  98.4      9    3861
 
     Percentage of the requests served within a certain time (ms)
-    50%      8
-    66%     12
-    75%     15
-    80%     17
-    90%     27
-    95%     40
-    98%     94
-    99%   1016
-    100%   2233 (longest request)
+    50%      9
+    66%      9
+    75%     10
+    80%     10
+    90%     10
+    95%     12
+    98%     15
+    99%     21
+    100%   3861 (longest request)
 
 ## Build and run
 
@@ -115,13 +114,13 @@ Output:
 
 ### Nginx config
 
+Notes: the perfomance is much worse with `fastcgi_keep_conn on` and `keepalive 100`, I'll have to figure out why. Also, the performance is worse when using the `least_conn` load balancing mode.
+
         upstream fastcgi_backend_csharp {
                 server 127.0.0.1:9090;
                 server 127.0.0.1:9091;
                 server 127.0.0.1:9092;
                 server 127.0.0.1:9093;
-
-                keepalive 8;
         }
 
         server {
@@ -130,6 +129,9 @@ Output:
 
                 root /var/www/html;
                 server_name _;
+
+                fastcgi_keep_conn off;
+                fastcgi_request_buffering off;
 
                 location / {
                         try_files $uri $uri/ =404;

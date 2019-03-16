@@ -23,12 +23,13 @@ using System.Text;
 namespace AsyncFastCGI
 {
     class Output {
+        private Input input;
         private Socket connection;
         private NetworkStream stream;
         private Record record;
         private UInt16 requestID;
-        private bool ended = false;
-        private bool headerSent = false;
+        private bool ended;
+        private bool headerSent;
         private Dictionary<string, string> header;
         private int httpStatus = 200;
         private FifoStream outputBuffer;
@@ -38,7 +39,8 @@ namespace AsyncFastCGI
         /// </summary>
         /// <param name="request">Socket of the client connection.</param>
         /// <param name="requestID">FastCGI request ID</param>
-        public Output(Socket request, NetworkStream stream, UInt16 requestID, Record record, FifoStream outputBuffer) {
+        public Output(Input input, Socket request, NetworkStream stream, UInt16 requestID, Record record, FifoStream outputBuffer) {
+            this.input = input;
             this.connection = request;
             this.stream = stream;
             this.requestID = requestID;
@@ -46,6 +48,9 @@ namespace AsyncFastCGI
             this.outputBuffer = outputBuffer;
             this.outputBuffer.Reset();
             this.record = record;
+            
+            this.ended = false;
+            this.headerSent = false;
 
             // Default headers (can be overwritten)
             this.header["Content-Type"] = "text/html; charset=utf-8";
@@ -110,12 +115,17 @@ namespace AsyncFastCGI
 
             await this.sendBuffer(true);
 
+            /*
+                Send an empty STDOUT closing record.
+            */
             this.record.STDOUT(this.requestID, null);
-            try {
-                await this.record.sendAsync(this.stream);
-            } catch (Exception e) {
-                Console.WriteLine(e.ToString());
-            }
+            await this.record.sendAsync(this.stream);
+
+            /*
+                Send an "end request" record.
+            */
+            this.record.END_REQUEST(this.requestID, 0, Record.PROTOCOL_STATUS_REQUEST_COMPLETE);
+            await this.record.sendAsync(this.stream);
             
             this.ended = true;
         }
@@ -181,11 +191,14 @@ namespace AsyncFastCGI
         /// </summary>
         /// <param name="sendLeftover">False: Don't send the last segment
         /// if it's not exactly 65535 bytes. True: send all.</param>
-        /// <returns></returns>
         private async Task sendBuffer(bool sendLeftover = false) {
             while(this.outputBuffer.GetLength() > 0) {
                 if (!sendLeftover && this.outputBuffer.GetLength() < Record.MAX_CONTENT_SIZE) {
                     return;
+                }
+
+                if (!this.input.IsInputCompleted()) {
+                    await this.input.ReadAllAndDiscard();
                 }
 
                 this.record.STDOUT(this.requestID, this.outputBuffer);

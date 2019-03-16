@@ -15,6 +15,7 @@
  */
 using System;
 using System.IO;
+using System.Text;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -36,7 +37,6 @@ namespace AsyncFastCGI
             Status of processing
         */
         private bool parametersReceived;
-        private bool headersReceived;
         private bool initialized;
         private bool inputCompleted;
 
@@ -61,7 +61,6 @@ namespace AsyncFastCGI
             this.keepConnection = false;
 
             this.parametersReceived = false;
-            this.headersReceived = false;
             this.initialized = false;
             this.inputCompleted = false;
         }
@@ -78,8 +77,8 @@ namespace AsyncFastCGI
             /*
                 Read the parameters and the header.
             */
-            while(!this.parametersReceived || !this.headersReceived) {
-                await this.ProcessNextRecordAsync();
+            while(!this.parametersReceived) {
+                await this.ProcessRecordsAsync(true);
             }
 
             this.initialized = true;
@@ -88,9 +87,15 @@ namespace AsyncFastCGI
         /// <summary>
         /// Read all data from the input, but don't store it,
         /// dicard all instead.
+        /// This can be used, when you want to send a response,
+        /// without processing the full input. Since most
+        /// browsers won't accept any response before their
+        /// request got fully read.
         /// </summary>
         public async Task ReadAllAndDiscard() {
-            await Task.Delay(10);
+            while(!this.inputCompleted) {
+                await this.ProcessRecordsAsync(false);
+            }
         }
 
         public string GetHeader(string name) {
@@ -109,6 +114,16 @@ namespace AsyncFastCGI
             return 200;
         }
 
+        /// <summary>
+        /// Returns all server parameter parameters.
+        /// See the full list of passed parameters in:
+        ///     - /etc/nginx/fastcgi_params
+        /// </summary>
+        /// <returns></returns>
+        public Dictionary<string, string> GetAllParameters() {
+            return this.parameters;
+        }
+
         public UInt16 GetFastCgiRequestID() {
             return this.fastCgiRequestID;
         }
@@ -121,7 +136,7 @@ namespace AsyncFastCGI
         /// <param name="name">The name of the parameter</param>
         /// <returns>The parameter value</returns>
         public string GetParameter(string name) {
-            return "";
+            return this.parameters[name];
         }
 
         /// <summary>
@@ -144,46 +159,40 @@ namespace AsyncFastCGI
         }
 
         /// <summary>
-        /// Reads the input, until the next record is reconstructed,
-        /// sets object properties based on the record content, then
-        /// returns.
+        /// Reads the input, until records are reconstructed,
+        /// sets object properties based on the record contents.
+        /// Returns at three states: once after the parameters are
+        /// processed, then each time when some input data read
+        /// into the buffer, finally when input completed.
         /// </summary>
-        private async Task ProcessNextRecordAsync() {
+        /// <param name="allowStartingNewRequest"></param>
+        private async Task ProcessRecordsAsync(bool allowStartingNewRequest) {
             bool result;
 
             while(true) {
                 result = await this.inputRecord.ProcessInputAsync(stream);
 
-                if (this.inputRecord.GetRecordType() != Record.TYPE_BEGIN_REQUEST
-                        && this.fastCgiRequestID != this.inputRecord.GetRequestID())
-                {
-                    // Possible desynchronized state
-                    // Best is to close the connection
-                }
-
                 if (result) {
                     // A complete record has been reconstructed.
                     //  (The next call to processInputAsync will reset the state of the record.)
+
+                    if (this.inputRecord.GetRecordType() != Record.TYPE_BEGIN_REQUEST
+                        && this.fastCgiRequestID != this.inputRecord.GetRequestID())
+                    {
+                        throw(new ClientException("Uknown Request ID received in FastCGI connection."));
+                    }
 
                     switch(this.inputRecord.GetRecordType()) {
                         case Record.TYPE_BEGIN_REQUEST: {
                             this.fastCgiRequestID = this.inputRecord.GetRequestID();
                             this.role = this.inputRecord.GetRole();
                             this.keepConnection = this.inputRecord.IsKeepConnection();
-                            Console.WriteLine($"Record Type: Begin request. Keep conn: {this.keepConnection}");
 
                             break;
                         }
                         case Record.TYPE_PARAMS: {
-                            Console.WriteLine($"Record Type: Params. Length: {this.inputRecord.GetContentLength()}");
                             if (this.inputRecord.GetContentLength() == 0) {
-                                Console.WriteLine($"Input buffer size: {this.inputBuffer.GetLength()}");
                                 this.parameters = this.inputBuffer.GetNameValuePairs();
-
-
-                                foreach(var item in this.parameters) {
-                                    Console.WriteLine($"- {item.Key} = {item.Value}");
-                                }
 
                                 this.parametersReceived = true;
                                 this.inputBuffer.Reset();
@@ -199,7 +208,6 @@ namespace AsyncFastCGI
                             break;
                         }
                         case Record.TYPE_STDIN: {
-                            // Console.WriteLine($"Record Type: STDIN. Length: {record.getLength()}");
                             if (this.inputRecord.GetContentLength() == 0) {
                                 this.inputCompleted = true;
                                 return;
@@ -207,26 +215,36 @@ namespace AsyncFastCGI
 
                             this.inputRecord.CopyContentTo(this.inputBuffer);
 
-                            // Search for header closing sequence in the FIFO. ( \r\n\r\n )
-                            // If not found and the data is larger than the maxHeaderSize, then close connection.
-
-                            break;
+                            return;
                         }
                         case Record.TYPE_GET_VALUES: {
-                            // Console.WriteLine($"Record Type: Get values. Length: {record.getLength()}");
-                            break;
+                            throw(new ClientException("The server sent a FastCGI 'GET_VALUES' request, which is not yet supported."));
                         }
                         case Record.TYPE_ABORT_REQUEST: {
-                            // Console.WriteLine($"Record Type: Abort request. Length: {record.getLength()}");
-                            break;
+                            throw(new ClientException("Webserver aborted the request."));
                         }
                         default: {
-                            // Console.WriteLine($"Record Type: {record.getType()}. Length: {record.getLength()}");
-                            break;
+                            throw(new ClientException($"Unknown record Type: {this.inputRecord.GetRecordType()}. Length: {this.inputRecord.GetContentLength()}"));
                         }
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// You can use this for debugging, to get an
+        /// overview of all parameters.
+        /// </summary>
+        /// <returns>A text with lines containing key-value pairs,
+        /// separated by a colon and a space.</returns>
+        public string GetParametersAsText() {
+            StringBuilder sb = new StringBuilder();
+
+            foreach(var item in this.GetAllParameters()) {
+                sb.Append($"{item.Key}: {item.Value}\n");
+            }
+
+            return sb.ToString();
         }
     }
 }
