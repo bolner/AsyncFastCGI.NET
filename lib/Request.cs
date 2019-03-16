@@ -24,6 +24,8 @@ namespace AsyncFastCGI {
         private Record inputRecord;
         private Record outputRecord;
         private int maxHeaderSize;
+        private FifoStream inputBuffer;
+        private FifoStream outputBuffer;
 
         private Client.RequestHandlerDelegate requestHandler;
 
@@ -39,6 +41,8 @@ namespace AsyncFastCGI {
             this.outputRecord = new Record();
             this.requestHandler = requestHandler;
             this.maxHeaderSize = maxHeaderSize;
+            this.inputBuffer = new FifoStream(maxHeaderSize);
+            this.outputBuffer = new FifoStream(maxHeaderSize);
         }
 
         /// <summary>
@@ -57,15 +61,32 @@ namespace AsyncFastCGI {
         /// <returns>The index of the Request.</returns>
         public async Task<int> NewConnection(Socket request) {
             NetworkStream stream = new NetworkStream(request);
-            Input stdin = new Input(request, stream, this.inputRecord, this.maxHeaderSize);
-            await stdin.Initialize();
-            Output stdout = new Output(request, stream, stdin.GetFastCgiRequestID());
+            Input stdin;
+            Output stdout;
 
-            await this.requestHandler(stdin, stdout);
+            do {
+                stdin = new Input(request, stream, this.inputRecord, this.inputBuffer, this.maxHeaderSize);
 
-            request.Shutdown(SocketShutdown.Both);
+                try {
+                    await stdin.Initialize();
+                } catch (ClientException) {
+                    // TODO: log error
+                    request.Close();
+                    return this.index;
+                }
+                
+                stdout = new Output(request, stream, stdin.GetFastCgiRequestID(), this.outputRecord, this.outputBuffer);
+
+                try {
+                    await this.requestHandler(stdin, stdout);
+                } catch (ClientException) {
+                    // TODO: log error
+                    request.Close();
+                    return this.index;
+                }
+            } while (stdin.IsKeepConnection());
+
             request.Disconnect(false);
-
             return this.index;
         }
     }

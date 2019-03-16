@@ -52,13 +52,23 @@ namespace AsyncFastCGI {
         }
 
         private List<Segment> buffer;
+        private byte[] workBuffer;
 
         /// <summary>
         /// Constructor
         /// </summary>
-        public FifoStream() {
+        public FifoStream(int workBufferSize) {
             this.length = 0;
             this.buffer = new List<Segment>();
+            this.workBuffer = new byte[workBufferSize];
+        }
+
+        /// <summary>
+        /// Remove all data and reset state.
+        /// </summary>
+        public void Reset() {
+            this.length = 0;
+            this.buffer.Clear();
         }
 
         /// <summary>
@@ -74,7 +84,7 @@ namespace AsyncFastCGI {
         /// No copy made. FifoMemoryStream will not make any changes to them.
         /// </summary>
         /// <param name="data">Byte array to add to the FIFO stream.</param>
-        public void write(byte[] data) {
+        public void Write(byte[] data) {
             this.buffer.Add(new Segment(data));
             this.length += data.Length;
         }
@@ -87,7 +97,7 @@ namespace AsyncFastCGI {
         /// <param name="outBuffer">The target buffer, where we copy the bytes to.</param>
         /// <param name="outBufferOffset">The copying to the target buffer starts with this offset.</param>
         /// <returns>The number of bytes written to the output.</returns>
-        public int read(int count, byte[] outBuffer, int outBufferOffset) {
+        public int Read(int count, byte[] outBuffer, int outBufferOffset) {
             if (this.buffer.Count < 1) {
                 return 0;
             }
@@ -136,6 +146,73 @@ namespace AsyncFastCGI {
             }
 
             return transferred;
+        }
+
+        /// <summary>
+        /// Expects the FastCGI name-value pairs in the data.
+        /// Parses them, and returns them as a dictinary.
+        /// </summary>
+        /// <returns>A dictionary of name-value pairs.</returns>
+        public Dictionary<string, string> GetNameValuePairs() {
+            int length = Math.Min(this.length, this.workBuffer.Length);
+            Dictionary<string, string> dict = new Dictionary<string, string>();
+
+            this.Read(length, this.workBuffer, 0);
+            int cursor = 0;
+            int nameLength;
+            int valueLength;
+            string name;
+            string value;
+
+            while(cursor < length) {
+                nameLength = ParseNameValueLength(cursor);
+                if (nameLength == -1) {
+                    break;
+                } else if (nameLength <= 127) {
+                    cursor++;
+                } else {
+                    cursor += 4;
+                }
+
+                valueLength = ParseNameValueLength(cursor);
+                if (valueLength == -1) {
+                    break;
+                } else if (valueLength <= 127) {
+                    cursor++;
+                } else {
+                    cursor += 4;
+                }
+
+                if (cursor + nameLength + valueLength >= this.workBuffer.Length - 1) {
+                    break;
+                }
+
+                name = System.Text.Encoding.UTF8.GetString(this.workBuffer, cursor, nameLength);
+                cursor += nameLength;
+                value = System.Text.Encoding.UTF8.GetString(this.workBuffer, cursor, valueLength);
+                cursor += valueLength;
+
+                dict[name] = value;
+            }
+
+            return dict;
+        }
+
+        private int ParseNameValueLength(int cursor) {
+            if (cursor >= this.workBuffer.Length - 1) {
+                return -1;
+            }
+
+            if (this.workBuffer[cursor] <= 127) {
+                return this.workBuffer[cursor];
+            }
+
+            if (cursor + 4 >= this.workBuffer.Length) {
+                return -1;
+            }
+
+            return ((this.workBuffer[cursor] & 0x7f) << 24) + (this.workBuffer[cursor + 1] << 16)
+                + (this.workBuffer[cursor + 2] << 8) + this.workBuffer[cursor + 3];
         }
     }
 }

@@ -48,6 +48,9 @@ namespace FastCgiExampleApp
                 client.RequestHandler = Program.RequestHandler;
                 
                 await client.StartAsync();
+            } catch (AsyncFastCGI.ClientException e) {
+                Console.Error.WriteLine(e.Message);
+                Environment.Exit(1);
             } catch (Exception e) {
                 Console.Error.WriteLine(e.ToString());
                 Environment.Exit(1);

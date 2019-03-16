@@ -83,7 +83,7 @@ namespace AsyncFastCGI
             try {
                 this.bindAddress = IPAddress.Parse(bindAddress);
             } catch (Exception e) {
-                throw(new Exception($"Invalid bind address '{bindAddress}'.", e));
+                throw(new ClientException($"Invalid bind address '{bindAddress}'.", e));
             }
         }
 
@@ -145,24 +145,24 @@ namespace AsyncFastCGI
 
             int callbackCount = this.RequestHandler.GetInvocationList().Length;
             if (callbackCount < 1) {
-                throw(new Exception("Please set a callback for new requests. (Client.OnNewRequest)"));
+                throw(new ClientException("Please set a callback for new requests. (Client.OnNewRequest)"));
             }
 
             if (callbackCount > 1) {
-                throw(new Exception("It isn't allowed to set more than one callback for new requests. (Client.OnNewRequest)"));
+                throw(new ClientException("It isn't allowed to set more than one callback for new requests. (Client.OnNewRequest)"));
             }
 
             if (this.port < 1 || this.port > 65535) {
-                throw(new Exception($"The specified port is invalid: {this.port}"));
+                throw(new ClientException($"The specified port is invalid: {this.port}"));
             }
 
             Client.InitHttpStatuses();
 
             /*
-                Initialize the array of Request objects
+                Initialize the arrays of Request objects and tasks.
             */
-            this.requests = new Request[this.GetMaxConcurrentRequests()];
-            this.tasks = new Task<int>[this.GetMaxConcurrentRequests()];
+            this.requests = new Request[this.maxConcurrentRequests];
+            this.tasks = new Task<int>[this.maxConcurrentRequests];
 
             /*
                 Listen on socket, wait for the webserver to connect.
@@ -173,13 +173,13 @@ namespace AsyncFastCGI
             listeningSocket.ReceiveTimeout = 5000;
             listeningSocket.SendTimeout = 5000;
 
-            listeningSocket.Listen(this.GetMaxConcurrentRequests() * 2);
+            listeningSocket.Listen(this.maxConcurrentRequests * 2);
 
             /*
                 First fill the arrays with Requests and Tasks as
                 the new connections arrive.
             */
-            for (int i = 0; i < this.GetMaxConcurrentRequests(); i++) {
+            for (int i = 0; i < this.maxConcurrentRequests; i++) {
                 connection = await this.AcceptConnection(listeningSocket);
 
                 this.requests[i] = new Request(i, this.RequestHandler, this.GetMaxHeaderSize());
@@ -189,7 +189,8 @@ namespace AsyncFastCGI
             /*
                 When they got full, then go into a loop of waiting
                 on finished tasks before accepting new connections.
-                Re-use the Request objects.
+                Re-use the Request objects to minimize memory
+                allocation and garbage collection.
             */
             while(true) {
                 int index = (await Task.WhenAny(this.tasks)).Result;
@@ -210,7 +211,7 @@ namespace AsyncFastCGI
             try {
                 connection = await listeningSocket.AcceptAsync();
             } catch (Exception e) {
-                throw(new Exception("Listening socket lost. (Socket.AcceptAsync)", e));
+                throw(new ClientException("Listening socket lost. (Socket.AcceptAsync)", e));
             }
 
             // Configure the socket of the connection

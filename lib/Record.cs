@@ -73,19 +73,19 @@ namespace AsyncFastCGI {
         private int recordLength = 0;
         private UInt16 recordPaddingLength = 0;
 
-        public int getType() {
+        public int GetRecordType() {
             return this.recordType;
         }
 
-        public int getLength() {
+        public int GetLength() {
             return this.recordLength;
         }
 
-        public UInt16 getRequestID() {
+        public UInt16 GetRequestID() {
             return this.recordRequestID;
         }
 
-        public UInt16 getContentLength() {
+        public UInt16 GetContentLength() {
             return this.recordContentLength;
         }
 
@@ -102,7 +102,7 @@ namespace AsyncFastCGI {
         public async Task<bool> ProcessInputAsync(NetworkStream stream) {
             bool skipRead = false;
             if (this.completeRecordReconstructed) {
-                skipRead = this.startNextRecord();
+                skipRead = this.StartNextRecord();
             }
 
             if (!skipRead) {
@@ -146,7 +146,7 @@ namespace AsyncFastCGI {
             return false;
         }
 
-        private bool startNextRecord() {
+        private bool StartNextRecord() {
             int leftover = this.bufferEnd - this.recordLength;
             if (leftover > 0) {
                 Array.Copy(this.buffer, this.recordLength, this.buffer, 0, leftover);
@@ -163,29 +163,32 @@ namespace AsyncFastCGI {
             return false;
         }
 
-        public void reset() {
+        public void Reset() {
             this.bufferEnd = 0;
             this.completeRecordReconstructed = false;
             this.headerReconstructed = false;
         }
 
-        public int getRole() {
-            if (this.recordType != TYPE_BEGIN_REQUEST) {
-                throw(new Exception("Called 'getRole' on a non-BEGIN_REQUEST record."));
-            }
-
+        /// <summary>
+        /// Returns the role, which can be: responder, authorizer, filter.
+        /// </summary>
+        /// <returns>Role identifier value</returns>
+        public UInt16 GetRole() {
             if (this.isLittleEndian) {
-                return (this.buffer[HEADER_SIZE + 0] << 8) | this.buffer[HEADER_SIZE + 1];
+                return (UInt16)((this.buffer[HEADER_SIZE + 0] << 8) | this.buffer[HEADER_SIZE + 1]);
             }
 
-            return (this.buffer[HEADER_SIZE + 1] << 8) | this.buffer[HEADER_SIZE + 0];
+            return (UInt16)((this.buffer[HEADER_SIZE + 1] << 8) | this.buffer[HEADER_SIZE + 0]);
         }
 
-        public bool isKeepConnection() {
-            if (this.recordType != TYPE_BEGIN_REQUEST) {
-                throw(new Exception("Called 'isKeepConnection' on a non-BEGIN_REQUEST record."));
-            }
-
+        /// <summary>
+        /// For BEGIN_REQUEST records. If zero, the application closes the connection
+        /// after responding to this request. If not zero, the application does not
+        /// close the connection after responding to this request; the Web server
+        /// retains responsibility for the connection.
+        /// </summary>
+        /// <returns>0 for closing, 1 for keeping the connection open after this request.</returns>
+        public bool IsKeepConnection() {
             return this.buffer[HEADER_SIZE + 2] > 0;
         }
 
@@ -197,7 +200,7 @@ namespace AsyncFastCGI {
         public void CopyContentTo(FifoStream stream) {
             byte[] data = new byte[this.recordContentLength];
             Array.Copy(this.buffer, HEADER_SIZE, data, 0, this.recordContentLength);
-            stream.write(data);
+            stream.Write(data);
         }
 
         /// <summary>
@@ -215,7 +218,7 @@ namespace AsyncFastCGI {
             if (fifo == null) {
                 length = 0;
             } else {
-                length = (UInt16)fifo.read(Record.MAX_CONTENT_SIZE, this.buffer, 8);
+                length = (UInt16)fifo.Read(Record.MAX_CONTENT_SIZE, this.buffer, 8);
             }
             
             /*

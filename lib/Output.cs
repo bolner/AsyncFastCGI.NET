@@ -31,20 +31,21 @@ namespace AsyncFastCGI
         private bool headerSent = false;
         private Dictionary<string, string> header;
         private int httpStatus = 200;
-        private FifoStream fifo;
+        private FifoStream outputBuffer;
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="request">Socket of the client connection.</param>
         /// <param name="requestID">FastCGI request ID</param>
-        public Output(Socket request, NetworkStream stream, UInt16 requestID) {
+        public Output(Socket request, NetworkStream stream, UInt16 requestID, Record record, FifoStream outputBuffer) {
             this.connection = request;
             this.stream = stream;
             this.requestID = requestID;
             this.header = new Dictionary<string, string>();
-            this.fifo = new FifoStream();
-            this.record = new Record();
+            this.outputBuffer = outputBuffer;
+            this.outputBuffer.Reset();
+            this.record = record;
 
             // Default headers (can be overwritten)
             this.header["Content-Type"] = "text/html; charset=utf-8";
@@ -70,7 +71,7 @@ namespace AsyncFastCGI
                 this.writeHeader();
             }
 
-            this.fifo.write(
+            this.outputBuffer.Write(
                 Encoding.UTF8.GetBytes(data)
             );
             await this.sendBuffer(false);
@@ -93,7 +94,7 @@ namespace AsyncFastCGI
                 this.writeHeader();
             }
 
-            this.fifo.write(data);
+            this.outputBuffer.Write(data);
             await this.sendBuffer(false);
         }
 
@@ -152,24 +153,24 @@ namespace AsyncFastCGI
         private void writeHeader() {
             string codeText = Client.GetHttpStatusText(this.httpStatus);
             if (codeText == "") {
-                this.fifo.write(
+                this.outputBuffer.Write(
                     Encoding.UTF8.GetBytes($"HTTP/1.1 {this.httpStatus}\r\n")
                 );
             } else {
-                this.fifo.write(
+                this.outputBuffer.Write(
                     Encoding.UTF8.GetBytes($"HTTP/1.1 {this.httpStatus} {codeText}\r\n")
                 );
             }
 
             foreach(KeyValuePair<string, string> entry in this.header)
             {
-                this.fifo.write(
+                this.outputBuffer.Write(
                     Encoding.UTF8.GetBytes($"{entry.Key}: {entry.Value}\r\n")
                 );
             }
 
             // Last CR/LF
-            this.fifo.write(new byte[] { 0x0D, 0x0A });
+            this.outputBuffer.Write(new byte[] { 0x0D, 0x0A });
 
             this.headerSent = true;
         }
@@ -182,12 +183,12 @@ namespace AsyncFastCGI
         /// if it's not exactly 65535 bytes. True: send all.</param>
         /// <returns></returns>
         private async Task sendBuffer(bool sendLeftover = false) {
-            while(this.fifo.GetLength() > 0) {
-                if (!sendLeftover && this.fifo.GetLength() < Record.MAX_CONTENT_SIZE) {
+            while(this.outputBuffer.GetLength() > 0) {
+                if (!sendLeftover && this.outputBuffer.GetLength() < Record.MAX_CONTENT_SIZE) {
                     return;
                 }
 
-                this.record.STDOUT(this.requestID, this.fifo);
+                this.record.STDOUT(this.requestID, this.outputBuffer);
                 try {
                     await this.record.sendAsync(this.stream);
                 } catch (Exception e) {
