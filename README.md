@@ -39,7 +39,7 @@ class Program
 
 Running 4 processes of the example `main.cs` application (which currently returns all headers and system parameters) behind an Nginx webserver on an i7-8559U CPU (embedded, low performance). The concurrency is 400, so 400 connections are open at the same time.
 
-    ab -c 400 -n 50000 127.0.0.1/csharp
+    ab -c 400 -n 200000 127.0.0.1/csharp
 
 Output:
 
