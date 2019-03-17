@@ -2,7 +2,7 @@
 
 Fully async FastCGI client library for `.NET Core`, written in C#. A non-intrusive alternative for developing web applications.
 
-Development hasn't reached the release state yet. All of those parts are implemented from the FastCGI specification, which are used `Nginx`.
+Development hasn't reached the release state yet. All parts are implemented from the FastCGI specification, which are used by `Nginx`.
 
 ## Example
 
