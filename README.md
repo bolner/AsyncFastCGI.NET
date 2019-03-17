@@ -37,47 +37,17 @@ class Program
 
 ## Benchmark results
 
-Running 4 processes of the example `main.cs` application (which currently returns all headers and system parameters) behind an Nginx webserver on an i7-8559U CPU (embedded, low performance). The concurrency is 400, so 400 connections are open at the same time.
+The benchmarking is done in another project. For more information see [FastCGI-bench](https://github.com/bolner/FastCGI-bench). The following result sample is a high concurrency comparison between a NodeJS client, this library, and a [non-async library](https://github.com/LukasBoersma/FastCGI), written in C#.
 
-    ab -c 400 -n 200000 127.0.0.1/csharp
+### Concurrency: **400** simultaneous connections / 200'000 requests
 
-Output:
+| Library          | Req. /sec | Req. Time | Conc. R.T. | Longest R. | Failed |
+|------------------|-----------|-----------|------------|------------|--------|
+| AsyncFastCGI.NET | 19893.88  | 20.107 ms | 0.050 ms   | 2044 ms    | 0      |
+| NodeJS           | 21411.16  | 18.682 ms | 0.047 ms   | 1062 ms    | 0      |
+| LB FastCGI       | fails     | fails     | fails      | fails      | fails  |
 
-    Server Software:        AsyncFastCGI.NET
-    Server Hostname:        127.0.0.1
-    Server Port:            80
-
-    Document Path:          /csharp
-    Document Length:        512 bytes
-
-    Concurrency Level:      400
-    Time taken for tests:   8.664 seconds
-    Complete requests:      200000
-    Failed requests:        0
-    Total transferred:      135600000 bytes
-    HTML transferred:       102400000 bytes
-    Requests per second:    23084.99 [#/sec] (mean)
-    Time per request:       17.327 [ms] (mean)
-    Time per request:       0.043 [ms] (mean, across all concurrent requests)
-    Transfer rate:          15284.79 [Kbytes/sec] received
-
-    Connection Times (ms)
-                min  mean[+/-sd] median   max
-    Connect:        0    2  28.7      0    1027
-    Processing:     0   14  93.6      8    3861
-    Waiting:        0   14  93.6      8    3861
-    Total:          0   16  98.4      9    3861
-
-    Percentage of the requests served within a certain time (ms)
-    50%      9
-    66%      9
-    75%     10
-    80%     10
-    90%     10
-    95%     12
-    98%     15
-    99%     21
-    100%   3861 (longest request)
+*Req. Time: mean | Conc. R.T.: mean, across all concurrent requests*
 
 ## Build and run
 
@@ -95,14 +65,14 @@ Output:
     apt-get install dotnet-sdk-2.2
     ```
 
-1. Build or run for debug and development
+2. Build or run for debug and development
 
     ```bash
     dotnet build
     dotnet run 8080
     ```
 
-2. Release build
+3. Release build
 
     For Ubuntu and Windows:
 
