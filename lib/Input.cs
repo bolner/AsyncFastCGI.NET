@@ -119,7 +119,7 @@ namespace AsyncFastCGI
                 await this.ReadAllAsync();
             }
 
-            return "";
+            return Encoding.UTF8.GetString(this.inputBuffer.Copy());
         }
 
         /// <summary>
