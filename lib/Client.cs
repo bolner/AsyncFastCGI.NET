@@ -114,7 +114,9 @@ namespace AsyncFastCGI
         }
 
         /// <summary>
-        /// Set the maximum allowed size for HTTP headers.
+        /// Set the maximum allowed size for HTTP headers. Don't
+        /// forget to also configure this in the webserver,
+        /// since that converts them into parameters.
         /// </summary>
         /// <param name="value">The maximum allowed size for HTTP headers.</param>
         public void SetMaxHeaderSize(int value) {

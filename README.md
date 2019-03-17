@@ -16,8 +16,8 @@ class Program
         client.setPort(9090);
         client.setBindAddress("0.0.0.0");       // Bind to all interfaces
         client.setMaxConcurrentRequests(256);   // When reached then queued
-        client.setMaxInputSize(8388608);        // 8 MB
-        client.setConnectionTimeout(2000);      // 2 seconds
+        client.setConnectionTimeout(10000);     // 10 seconds
+        client.SetMaxHeaderSize(16384);         // 16 KB. Max HTTP header length
         client.requestHandler = Program.requestHandler;
         
         await client.startAsync();
