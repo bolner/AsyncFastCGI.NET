@@ -90,12 +90,10 @@ namespace AsyncFastCGI {
                     request.Close();
                     return this.index;
                 }
-
-                await stream.FlushAsync();
             } while (input.IsKeepConnection());
 
-            // request.Shutdown(SocketShutdown.Both);
             request.Disconnect(false);
+
             return this.index;
         }
     }

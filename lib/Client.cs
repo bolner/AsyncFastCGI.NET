@@ -173,7 +173,9 @@ namespace AsyncFastCGI
             listeningSocket.ReceiveTimeout = 5000;
             listeningSocket.SendTimeout = 5000;
 
-            listeningSocket.Listen(this.maxConcurrentRequests * 2);
+            // listeningSocket.SetSocketOption (SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+
+            listeningSocket.Listen(this.maxConcurrentRequests * 5);
 
             /*
                 First fill the arrays with Requests and Tasks as
@@ -217,6 +219,9 @@ namespace AsyncFastCGI
             // Configure the socket of the connection
             connection.ReceiveTimeout = this.GetConnectionTimeout();
             connection.SendTimeout = this.GetConnectionTimeout();
+
+            /* LingerOption lingerOption = new LingerOption (true, 10);
+            connection.SetSocketOption (SocketOptionLevel.Socket, SocketOptionName.Linger, lingerOption); */
 
             return connection;
         }
