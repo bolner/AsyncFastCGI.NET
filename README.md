@@ -41,6 +41,8 @@ The benchmarking is done in another project. For more information see [FastCGI-b
 
 ### Concurrency: **400** simultaneous connections / 200'000 requests
 
+    ab -c 400 -n 200000 127.0.0.1/PATH
+
 | Library          | Req. /sec | Req. Time | Conc. R.T. | Longest R. | Failed |
 |------------------|-----------|-----------|------------|------------|--------|
 | AsyncFastCGI.NET | 19893.88  | 20.107 ms | 0.050 ms   | 2044 ms    | 0      |
