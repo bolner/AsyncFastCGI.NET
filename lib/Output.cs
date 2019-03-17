@@ -198,7 +198,7 @@ namespace AsyncFastCGI
                 }
 
                 if (!this.input.IsInputCompleted()) {
-                    await this.input.ReadAllAndDiscard();
+                    await this.input.ReadAllAndDiscardAsync();
                 }
 
                 this.record.STDOUT(this.requestID, this.outputBuffer);

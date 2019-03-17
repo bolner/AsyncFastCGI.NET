@@ -85,41 +85,68 @@ namespace AsyncFastCGI
         }
 
         /// <summary>
-        /// Read all data from the input, but don't store it,
+        /// Read all data from the input, but don't store them,
         /// dicard all instead.
         /// This can be used, when you want to send a response,
         /// without processing the full input. Since most
         /// browsers won't accept any response before their
         /// request got fully read.
+        /// Any subsequent calls to "Read" methods will result
+        /// in an empty response.
         /// </summary>
-        public async Task ReadAllAndDiscard() {
+        public async Task ReadAllAndDiscardAsync() {
             while(!this.inputCompleted) {
-                await this.ProcessRecordsAsync(false);
+                await this.ProcessRecordsAsync(false, true);
             }
         }
 
-        public string GetHeader(string name) {
+        /// <summary>
+        /// Reads all data from the request into the input buffer.
+        /// </summary>
+        private async Task ReadAllAsync() {
+            while(!this.inputCompleted) {
+                await this.ProcessRecordsAsync(false, false);
+            }
+        }
+
+        /// <summary>
+        /// Returns the request content as a UTF-8 encoded
+        /// string.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<string> GetContentAsync() {
+            if (!this.inputCompleted) {
+                await this.ReadAllAsync();
+            }
+
             return "";
         }
 
-        public string GetContent() {
-            return "";
-        }
+        /// <summary>
+        /// Returns the full input data, except the headers.
+        /// The headers are removed by the webserver, and
+        /// are forwarded as parameters.
+        /// See the 'GetParameter()' method.
+        /// </summary>
+        /// <returns>Full input data in binary form.</returns>
+        public async Task<byte[]> GetBinaryContentAsync() {
+            if (!this.inputCompleted) {
+                await this.ReadAllAsync();
+            }
 
-        public byte[] GetBinaryContent() {
-            return new byte[1];
-        }
-
-        public int GetHttpStatus() {
-            return 200;
+            return this.inputBuffer.Copy();
         }
 
         /// <summary>
         /// Returns all server parameter parameters.
-        /// See the full list of passed parameters in:
+        /// The parameters include the HTTP headers as well.
+        /// If you miss an HTTP header, then check your
+        /// webserver configuration, since that decides
+        /// which ones to forward.
+        /// For Nginx, the full list of passed parameters is in:
         ///     - /etc/nginx/fastcgi_params
         /// </summary>
-        /// <returns></returns>
+        /// <returns>A directory of all key-value pairs.</returns>
         public Dictionary<string, string> GetAllParameters() {
             return this.parameters;
         }
@@ -130,7 +157,11 @@ namespace AsyncFastCGI
 
         /// <summary>
         /// Returns the value of a server parameter.
-        /// See the full list of passed parameters in:
+        /// The parameters include the HTTP headers as well.
+        /// If you miss an HTTP header, then check your
+        /// webserver configuration, since that decides
+        /// which ones to forward.
+        /// For Nginx, the full list of passed parameters is in:
         ///     - /etc/nginx/fastcgi_params
         /// </summary>
         /// <param name="name">The name of the parameter</param>
@@ -165,8 +196,9 @@ namespace AsyncFastCGI
         /// processed, then each time when some input data read
         /// into the buffer, finally when input completed.
         /// </summary>
-        /// <param name="allowStartingNewRequest"></param>
-        private async Task ProcessRecordsAsync(bool allowStartingNewRequest) {
+        /// <param name="allowStartingNewRequest">Whether it is expected to start a new request before stopping.</param>
+        /// <param name="discardInput">If true, then the request input data is not saved into the buffer.</param>
+        private async Task ProcessRecordsAsync(bool allowStartingNewRequest, bool discardInput = false) {
             bool result;
 
             while(true) {
@@ -184,9 +216,17 @@ namespace AsyncFastCGI
 
                     switch(this.inputRecord.GetRecordType()) {
                         case Record.TYPE_BEGIN_REQUEST: {
+                            if (!allowStartingNewRequest) {
+                                throw(new Exception("A new request was started in a state when it is unexpected."));
+                            }
+
                             this.fastCgiRequestID = this.inputRecord.GetRequestID();
                             this.role = this.inputRecord.GetRole();
                             this.keepConnection = this.inputRecord.IsKeepConnection();
+
+                            this.parametersReceived = false;
+                            this.initialized = false;
+                            this.inputCompleted = false;
 
                             break;
                         }
@@ -213,8 +253,10 @@ namespace AsyncFastCGI
                                 return;
                             }
 
-                            this.inputRecord.CopyContentTo(this.inputBuffer);
-
+                            if (!discardInput) {
+                                this.inputRecord.CopyContentTo(this.inputBuffer);
+                            }
+                            
                             return;
                         }
                         case Record.TYPE_GET_VALUES: {

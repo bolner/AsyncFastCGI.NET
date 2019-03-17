@@ -50,6 +50,10 @@ namespace AsyncFastCGI {
                 this.data = data;
                 this.offset = 0;
             }
+
+            public int GetLength() {
+                return this.data.Length - offset;
+            }
         }
 
         private List<Segment> buffer;
@@ -217,6 +221,23 @@ namespace AsyncFastCGI {
 
             cursor += 4;
             return lenght;
+        }
+
+        /// <summary>
+        /// Makes a copy of the data inside the FIFO stream.
+        /// </summary>
+        /// <returns>A byte array containing all data in the stream.</returns>
+        public byte[] Copy() {
+            byte[] data = new byte[this.length];
+            int offset = 0, length;
+
+            foreach(var segment in this.buffer) {
+                length = segment.GetLength();
+                Array.Copy(segment.data, segment.offset, data, offset, length);
+                offset += length;
+            }
+
+            return data;
         }
     }
 }

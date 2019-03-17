@@ -87,6 +87,11 @@ namespace AsyncFastCGI
             }
         }
 
+        /// <summary>
+        /// Returns the interface specification, where the listening
+        /// socket was bound.
+        /// </summary>
+        /// <returns>The bind address</returns>
         public string GetBindAddress()
         {
             return this.bindAddress.ToString();
