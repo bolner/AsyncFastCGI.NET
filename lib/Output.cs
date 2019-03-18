@@ -105,9 +105,9 @@ namespace AsyncFastCGI
 
         /// <summary>
         /// Flush the remaining output, prevent further writes,
-        /// and close the FastCGI STDOUT with an empty record.
+        /// close the FastCGI STDOUT with an empty record,
+        /// and send an "end request" record.
         /// </summary>
-        /// <returns></returns>
         public async Task EndAsync() {
             if (this.ended) {
                 return;
@@ -141,7 +141,7 @@ namespace AsyncFastCGI
         /// <summary>
         /// Set the HTTP response status.
         /// </summary>
-        /// <param name="status">HTTP response status.await Example: 200</param>
+        /// <param name="status">HTTP response status. Example: 200</param>
         public void SetHttpStatus(int status) {
             this.httpStatus = status;
         }

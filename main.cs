@@ -15,6 +15,7 @@
  */
 using System;
 using System.Threading.Tasks;
+using System.Net;
 
 namespace FastCgiExampleApp
 {
@@ -57,14 +58,38 @@ namespace FastCgiExampleApp
             }
         }
 
+        /// <summary>
+        /// Here comes your code to handle requests.
+        /// </summary>
         private static async Task RequestHandler(AsyncFastCGI.Input input, AsyncFastCGI.Output output) {
             output.SetHttpStatus(200);
             output.SetHeader("Content-Type", "text/html; charset=utf-8");
 
-            string text = input.GetParametersAsText();
+            string requestURI = input.GetParameter("REQUEST_URI");
+            string requestMethod = input.GetParameter("REQUEST_METHOD");
+            string remoteAddress = input.GetParameter("REMOTE_ADDR");
+            string requestData = WebUtility.HtmlEncode(await input.GetContentAsync());
 
-            await output.WriteAsync("<!DOCTYPE html><html><body><h1>Hello World!");
-            await output.WriteAsync($"</h1><br><pre>{text}</pre></body></html>");
+            await output.WriteAsync($@"<!DOCTYPE html>
+<html>
+    <body>
+        <h1>Hello World!</h1>
+        
+        <p><b>Request URI:</b> {requestURI}</p>
+        <p><b>Request Method:</b> {requestMethod}</p>
+        <p><b>Remote Address:</b> {remoteAddress}</p>
+        <p>
+            <form method='post'>
+                <input type='text' name='data' length='60'>
+                <input type='submit' value='Submit'>
+            </form>
+        </p>
+        <p><b>Posted data:</b></p>
+        <pre>{requestData}</pre>
+    </body>
+</html>
+");
+
             await output.EndAsync();
         }
     }

@@ -138,7 +138,7 @@ namespace AsyncFastCGI
         }
 
         /// <summary>
-        /// Returns all server parameter parameters.
+        /// Returns all server parameters.
         /// The parameters include the HTTP headers as well.
         /// If you miss an HTTP header, then check your
         /// webserver configuration, since that decides
@@ -151,6 +151,11 @@ namespace AsyncFastCGI
             return this.parameters;
         }
 
+        /// <summary>
+        /// The FastCGI request ID, received from Nginx.
+        /// Currently it always returns 1.
+        /// </summary>
+        /// <returns></returns>
         public UInt16 GetFastCgiRequestID() {
             return this.fastCgiRequestID;
         }
@@ -190,8 +195,8 @@ namespace AsyncFastCGI
         }
 
         /// <summary>
-        /// Reads the input, until records are reconstructed,
-        /// sets object properties based on the record contents.
+        /// Reads the input, until records are reconstructed.
+        /// Sets object properties based on the record contents.
         /// Returns at three states: once after the parameters are
         /// processed, then each time when some input data read
         /// into the buffer, finally when input completed.
