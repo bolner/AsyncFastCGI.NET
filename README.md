@@ -140,7 +140,7 @@ Notes: the perfomance is much worse with `fastcgi_keep_conn on` and `keepalive 1
                         try_files $uri $uri/ =404;
                 }
 
-                location /csharp {
+                location /asyncfastcgi {
                         include /etc/nginx/fastcgi_params;
                         fastcgi_pass fastcgi_backend_csharp;
                 }
