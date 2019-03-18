@@ -6,6 +6,8 @@ Development hasn't reached the release state yet. All parts are implemented from
 
 ## Example
 
+Your request handler method is called after the parameters (they include the HTTP headers) are processed, but before the request payload is read.
+
 ```csharp
 class Program
 {
