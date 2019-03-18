@@ -92,6 +92,7 @@ namespace AsyncFastCGI {
                 }
             } while (input.IsKeepConnection());
 
+            request.Shutdown(SocketShutdown.Both);
             request.Disconnect(false);
 
             return this.index;
