@@ -2,7 +2,8 @@
 
 Fully async FastCGI client library for `.NET Core`, written in C#. A non-intrusive alternative for developing web applications.
 
-Development hasn't reached the release state yet. All parts are implemented from the FastCGI specification, which are used by `Nginx`.
+All parts are implemented from the FastCGI specification, which are used by `Nginx`. Please refer to the end of this document
+for an example NginX configuration. The performance is stable at high loads when using the KeepAlive setting in NginX for the FastCGI connections.
 
 ## Example
 
@@ -70,17 +71,48 @@ The output is the following:
 
 The benchmarking is done in another project. For more information see [FastCGI-bench](https://github.com/bolner/FastCGI-bench). The following result sample is a high concurrency comparison between a NodeJS client, this library, and a [non-async library](https://github.com/LukasBoersma/FastCGI), written in C#.
 
-### Concurrency: **400** simultaneous connections / 200'000 requests
+It must be noted that all FastCGI clients require a warm-up with lower concurrencies before going to 400, otherwise the first X connections fail.
 
-    ab -c 400 -n 200000 127.0.0.1/PATH
+### KeepAlive = On / Concurrency = 400
+
+Although the short-term performance is worse using the KeepAlive setting in NginX, still this is the only sustainable way for any FastCGI library.
+The reason can be seen while running the ApacheBench test for like 5 minutes. When KeepAlive is disabled, then NginX creates a
+new TCP connection to the client for each of its incoming connections. The count of used ports soon reaches the maximum 65535,
+because even when the connections complete, their sockets stay for a while in the `TIME_WAIT` state.
+
+    ab -kc 400 -n 200000 127.0.0.1/PATH
+
+NginX settings:
+
+    fastcgi_keep_conn on;
+    fastcgi_request_buffering off;
+    keepalive 400;
+
+The `node-fastcgi` library doesn't support the KeepAlive setting. It immediately closes the TCP connections to NginX after the requests complete.
+
+| Library          | Req. /sec  | Req. Time  | Conc. R.T. | Longest R. | Failed     |
+|------------------|------------|------------|------------|------------|------------|
+| AsyncFastCGI.NET | 9111.87    | 43.899 ms  | 0.110 ms   | 92 ms      | 0          |
+| node-fastcgi     | no support | no support | no support | no support | no support |
+| LB FastCGI       | fails      | fails      | fails      | fails      | fails      |
+
+*Req. Time: mean | Conc. R.T.: mean, across all concurrent requests*
+
+### KeepAlive = Off / Concurrency = 400
+
+As mentioned in the previous point, it is not recommended to turn KeepAlive off in NginX.
+The only reason this option is shown is that the NodeJS library works and the results are comparable.
+
+    ab -kc 400 -n 200000 127.0.0.1/PATH
 
 | Library          | Req. /sec | Req. Time | Conc. R.T. | Longest R. | Failed |
 |------------------|-----------|-----------|------------|------------|--------|
 | AsyncFastCGI.NET | 19893.88  | 20.107 ms | 0.050 ms   | 2044 ms    | 0      |
-| NodeJS           | 21411.16  | 18.682 ms | 0.047 ms   | 1062 ms    | 0      |
+| node-fastcgi     | 21411.16  | 18.682 ms | 0.047 ms   | 1062 ms    | 0      |
 | LB FastCGI       | fails     | fails     | fails      | fails      | fails  |
 
 *Req. Time: mean | Conc. R.T.: mean, across all concurrent requests*
+*The maximum concurrency the `LB FastCGI` library can handle was around 50-60.*
 
 ## Build and run
 
@@ -117,9 +149,11 @@ The benchmarking is done in another project. For more information see [FastCGI-b
 
 ### Nginx config
 
-Notes: the perfomance is much worse with `fastcgi_keep_conn on` and `keepalive 100`, I'll have to figure out why. Also, the performance is worse when using the `least_conn` load balancing mode.
+The performance is worse when using the `least_conn` load balancing mode.
 
         upstream fastcgi_backend_csharp {
+                keepalive 400;
+
                 server 127.0.0.1:9090;
                 server 127.0.0.1:9091;
                 server 127.0.0.1:9092;
@@ -133,7 +167,7 @@ Notes: the perfomance is much worse with `fastcgi_keep_conn on` and `keepalive 1
                 root /var/www/html;
                 server_name _;
 
-                fastcgi_keep_conn off;
+                fastcgi_keep_conn on;
                 fastcgi_request_buffering off;
 
                 location / {

@@ -43,7 +43,7 @@ namespace FastCgiExampleApp
 
                 client.SetPort(port);                   // The port was passed as command line argument
                 client.SetBindAddress("0.0.0.0");       // Bind to all interfaces
-                client.SetMaxConcurrentRequests(256);   // Requests that are running in parallel
+                client.SetMaxConcurrentRequests(512);   // Requests that are running in parallel
                 client.SetConnectionTimeout(10000);     // 10 seconds
                 client.SetMaxHeaderSize(16384);         // 16 KB. Max HTTP header length
                 client.RequestHandler = Program.RequestHandler;

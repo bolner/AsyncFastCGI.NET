@@ -70,8 +70,7 @@ namespace AsyncFastCGI {
                 try {
                     await input.Initialize();
                 } catch (ClientException e) {
-                    // TODO: log error
-                    Console.WriteLine(e.Message);
+                    Console.Error.WriteLine(e.Message);
                     request.Close();
                     return this.index;
                 }
@@ -85,13 +84,14 @@ namespace AsyncFastCGI {
                         await output.EndAsync();
                     }
                 } catch (ClientException e) {
-                    // TODO: log error
-                    Console.WriteLine(e.Message);
+                    Console.Error.WriteLine(e.Message);
                     request.Close();
                     return this.index;
                 }
             } while (input.IsKeepConnection());
 
+            // If keepConnection == false, then the client is responsible for closing the connection.
+            // (Lingering is configured already)
             request.Shutdown(SocketShutdown.Both);
             request.Disconnect(false);
 
