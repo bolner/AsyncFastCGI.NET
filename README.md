@@ -117,6 +117,7 @@ NginX settings:
 | LB FastCGI       | fails     | fails     | fails      | fails      | fails  |
 
 *Req. Time: mean | Conc. R.T.: mean, across all concurrent requests*
+
 *The maximum concurrency the `LB FastCGI` library can handle was around 50-60.*
 
 ## Build and run
