@@ -78,7 +78,7 @@ It must be noted that all FastCGI clients require a warm-up with lower concurren
 Although the short-term performance is worse using the KeepAlive setting in NginX, still this is the only sustainable way for any FastCGI library.
 The reason can be seen while running the ApacheBench test for like 5 minutes. When KeepAlive is disabled, then NginX creates a
 new TCP connection to the client for each of its incoming connections. The count of used ports soon reaches the maximum 65535,
-because even when the connections complete, their sockets stay for a while in the `TIME_WAIT` state.
+because even when the connections complete, their sockets stay for a while in the `TIME_WAIT` state. Thefore the most important use case is when KeepAlive=On, so the ports are not exhausted:
 
     ab -kc 400 -n 200000 127.0.0.1/PATH
 
@@ -104,6 +104,11 @@ As mentioned in the previous point, it is not recommended to turn KeepAlive off 
 The only reason this option is shown is that the NodeJS library works and the results are comparable.
 
     ab -kc 400 -n 200000 127.0.0.1/PATH
+
+NginX settings:
+
+    fastcgi_keep_conn off;
+    fastcgi_request_buffering off;
 
 | Library          | Req. /sec | Req. Time | Conc. R.T. | Longest R. | Failed |
 |------------------|-----------|-----------|------------|------------|--------|
