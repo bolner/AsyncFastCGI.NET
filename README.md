@@ -5,6 +5,12 @@ Fully async FastCGI client library for `.NET Core`, written in C#. A non-intrusi
 All parts are implemented from the FastCGI specification, which are used by `Nginx`. Please refer to the end of this document
 for an example NginX configuration. The performance is stable at high loads when using the KeepAlive setting in NginX for the FastCGI connections.
 
+## Installation
+
+The library is [available on NuGet](https://www.nuget.org/packages/AsyncFastCGI.NET).
+
+    dotnet add package AsyncFastCGI.NET --version 1.0.0
+
 ## Example
 
 Your request handler method is called after the parameters (they include the HTTP headers) are processed, but before the request payload is read.
