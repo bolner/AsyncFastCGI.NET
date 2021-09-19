@@ -9,7 +9,7 @@ for an example NginX configuration. The performance is stable at high loads when
 
 The library is [available on NuGet](https://www.nuget.org/packages/AsyncFastCGI.NET).
 
-    dotnet add package AsyncFastCGI.NET --version 1.0.0
+    dotnet add package AsyncFastCGI.NET
 
 ## Example
 
