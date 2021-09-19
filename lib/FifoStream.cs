@@ -126,7 +126,7 @@ namespace AsyncFastCGI {
                     Array.Copy(current.data, current.offset, outBuffer, outBufferOffset, remaining);
                     this.length -= remaining;
                     transferred += remaining;
-                    current.offset -= remaining;
+                    current.offset += remaining;
 
                     return transferred; // remaining = 0
                 } else if (currentLength == remaining) {
