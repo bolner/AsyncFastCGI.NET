@@ -4,7 +4,7 @@
         <LangVersion>7.3</LangVersion>
 
         <PackageId>AsyncFastCGI.NET</PackageId>
-        <Version>1.0.1</Version>
+        <Version>1.0.2</Version>
         <Authors>Tamas Bolner</Authors>
         <Title>Async FastCGI library for .NET Core</Title>
         <Description>Fully async FastCGI client library for .NET Core, written in C#. A non-intrusive alternative for developing web applications.</Description>

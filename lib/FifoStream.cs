@@ -181,7 +181,7 @@ namespace AsyncFastCGI {
                     break;
                 }
 
-                if (cursor + nameLength + valueLength >= length - 1) {
+                if (cursor + nameLength + valueLength > length) {
                     break;
                 }
 
@@ -196,6 +196,13 @@ namespace AsyncFastCGI {
             return dict;
         }
 
+        /// <summary>
+        /// The key-value pairs are specified here:
+        /// - http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html#S3.4
+        /// </summary>
+        /// <param name="cursor"></param>
+        /// <param name="bufferSize"></param>
+        /// <returns></returns>
         private int ParseNameValueLength(ref int cursor, int bufferSize) {
             if (cursor >= bufferSize - 1) {
                 return -1;

@@ -130,17 +130,7 @@ NginX settings:
 
 1. Install `.NET Core` on Ubuntu 18.04
 
-    Execute the following as root:
-
-    ```bash
-    wget -q https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb
-    dpkg -i packages-microsoft-prod.deb
-
-    add-apt-repository universe
-    apt-get install apt-transport-https
-    apt-get update
-    apt-get install dotnet-sdk-2.2
-    ```
+    - [https://docs.microsoft.com/en-us/dotnet/core/install/linux-ubuntu](https://docs.microsoft.com/en-us/dotnet/core/install/linux-ubuntu)
 
 2. Build or run for debug and development
 
@@ -157,6 +147,12 @@ NginX settings:
     dotnet publish -c Release -r ubuntu.18.04-x64
 
     dotnet publish -c Release -r win10-x64
+    ```
+
+4. Create release package
+
+    ```bash
+    dotnet pack -c Release
     ```
 
 ### Nginx config
